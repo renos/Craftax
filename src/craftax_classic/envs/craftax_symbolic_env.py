@@ -100,8 +100,16 @@ class CraftaxClassicSymbolicEnv(EnvironmentNoAutoReset):
         light_level = 1
         is_sleeping = 1
         direction = 4
+        near_blocks = 1 * 2 * 17
 
-        return inv_size + num_intrinsics + light_level + is_sleeping + direction
+        return (
+            inv_size
+            + num_intrinsics
+            + light_level
+            + is_sleeping
+            + direction
+            + near_blocks
+        )
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = self.get_flat_map_obs_shape()

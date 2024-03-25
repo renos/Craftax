@@ -13,6 +13,11 @@ def create_log_dict(info, config):
         "episode_return": info["returned_episode_returns"],
         "episode_length": info["returned_episode_lengths"],
     }
+    for i, state in enumerate(info["state_rates"]):
+        to_log[f"state_rate_{i}"] = state
+
+    for i, state in enumerate(info["reached_state"]):
+        to_log[f"state_{i}_reached_prob"] = state
 
     if "Craftax" in config["ENV_NAME"]:
         to_log["score"] = info["score"]

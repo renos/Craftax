@@ -71,11 +71,19 @@ class EnvState:
 
     timestep: int
 
+    closest_blocks: jnp.ndarray
+    player_state: jnp.ndarray
+    inventory_diff: Inventory
+    intrinsics_diff: jnp.ndarray
+    closest_blocks_prev: jnp.ndarray
+    task_done: bool
+
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
+
 
 @struct.dataclass
 class EnvParams:
-    max_timesteps: int = 10000
+    max_timesteps: int = 1500
     day_length: int = 300
 
     zombie_health: int = 5
@@ -90,6 +98,7 @@ class EnvParams:
     spawn_skeleton_chance: float = 0.05
 
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
+
 
 @struct.dataclass
 class StaticEnvParams:

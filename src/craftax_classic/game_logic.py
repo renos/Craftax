@@ -1626,9 +1626,246 @@ def cap_inventory(state):
     return state
 
 
+# def find_closest_blocks(semantic_map, k):
+#     agent_position = (3, 4)  # Center of a 9x7 map
+#     closest_positions = {item: [] for item in id_to_item}
+
+#     for y in range(semantic_map.shape[0]):
+#         for x in range(semantic_map.shape[1]):
+#             block_id = semantic_map[y, x]
+#             block_name = id_to_item[block_id]
+#             distance = abs(agent_position[0] - x) + abs(agent_position[1] - y)
+#             position_info = {
+#                 "distance": distance,
+#                 "relative_position": (x - agent_position[0], y - agent_position[1]),
+#             }
+
+#             # Ensure the list for this block is sorted and contains up to k closest positions
+#             if len(closest_positions[block_name]) < k:
+#                 closest_positions[block_name].append(position_info)
+#                 closest_positions[block_name].sort(key=lambda x: x["distance"])
+#             elif distance < closest_positions[block_name][-1]["distance"]:
+#                 closest_positions[block_name][-1] = position_info
+#                 closest_positions[block_name].sort(key=lambda x: x["distance"])
+
+#     # Remove entries for blocks not found and 'None' type, and ensure the stored positions are only up to k
+#     closest_positions = {
+#         key: sorted(v, key=lambda x: x["distance"])[:k]
+#         for key, v in closest_positions.items()
+#         if len(v) > 0 and key != "None"
+#     }
+
+#     return closest_positions
+
+
+def find_closest_blocks(player_position, semantic_map, k=5):
+
+    height, width, num_blocks = semantic_map.shape
+
+    y_grid, x_grid = jnp.mgrid[0:height, 0:width]
+    # distances = jnp.sqrt(
+    #     (x_grid - agent_position[0]) ** 2 + (y_grid - agent_position[1]) ** 2
+    # )
+    distances = jnp.abs(x_grid - player_position[1]) + jnp.abs(
+        y_grid - player_position[0]
+    )
+
+    # Prepare for the output
+    closest_blocks_positions = jnp.full((k, 2, num_blocks), jnp.nan)
+
+    def process_block_type(block_id):
+        block_map = semantic_map[:, :, block_id]
+        block_distances = jnp.where(block_map == 1, distances, jnp.inf)
+
+        # Flatten for easy indexing
+        flat_distances = block_distances.ravel()
+
+        # Argsort distances and select the k smallest
+        sorted_indices = jnp.argsort(flat_distances)[:k]
+        sorted_y, sorted_x = jnp.unravel_index(sorted_indices, block_distances.shape)
+
+        sorted_y_relative = sorted_y - player_position[0]
+        sorted_x_relative = sorted_x - player_position[1]
+
+        # Create a mask to find which of the sorted indices are inf (indicating no block present)
+        is_inf_mask = jnp.isinf(flat_distances[sorted_indices])
+
+        # Replace positions corresponding to inf distances with the predetermined far away value
+        # Assuming (20, 20) is outside your map and used as a placeholder for 'far away'
+        far_away_value = jnp.array([30, 30])
+        closest_y = jnp.where(is_inf_mask, far_away_value[0], sorted_y_relative)
+        closest_x = jnp.where(is_inf_mask, far_away_value[1], sorted_x_relative)
+
+        return jnp.stack([closest_x, closest_y])
+
+    # Vectorize the operation for each block type
+    closest_blocks_positions = jax.vmap(process_block_type)(jnp.arange(num_blocks))
+
+    return closest_blocks_positions
+
+
+def update_relative_positions(closest_blocks, dx, dy, height, width):
+    num_blocks, _, k = closest_blocks.shape
+
+    def update_block_positions(block_id):
+        # new_block_positions = closest_blocks[block_id] - jnp.array([dx, dy]).reshape(
+        #     (2, 1)
+        # )
+        block_positions = closest_blocks[block_id]
+        not_nan_mask = jnp.logical_or(
+            block_positions[0, :] != 30, block_positions[1, :] != 30
+        )
+        subtraction_array = jnp.array([dy, dx]).reshape((2, 1))
+
+        # Apply subtraction only to entries that are not (30, 30)
+        new_block_positions = jnp.where(
+            not_nan_mask, block_positions - subtraction_array, block_positions
+        )
+
+        # remove
+        # # Calculate L1 distances from the origin
+        # l1_distances = jnp.sum(jnp.abs(new_block_positions), axis=0)
+
+        # # Sort based on L1 distance
+        # sorted_indices = jnp.argsort(l1_distances)
+
+        # sorted_block_positions = new_block_positions[:, sorted_indices]
+        # Determine positions within the specified bounds
+        within_bounds_y = jnp.abs(new_block_positions[0, :]) <= width
+        within_bounds_x = jnp.abs(new_block_positions[1, :]) <= height
+        within_bounds = within_bounds_y & within_bounds_x
+
+        # Use jnp.where to replace entries within bounds with (20, 20), respecting the y-first order
+        replaced_block_positions_y = jnp.where(
+            within_bounds, 30, new_block_positions[0, :]
+        )
+        replaced_block_positions_x = jnp.where(
+            within_bounds, 30, new_block_positions[1, :]
+        )
+
+        # Reconstruct the positions array with replaced values
+        replaced_block_positions = jnp.stack(
+            (replaced_block_positions_y, replaced_block_positions_x), axis=0
+        )
+
+        return replaced_block_positions  # replaced_block_positions
+
+    block_ids = jnp.arange(num_blocks)
+    closest_blocks = jax.vmap(update_block_positions)(block_ids)
+
+    return closest_blocks
+
+
+def merge_old_new(closest_blocks, k):
+    num_blocks, _, _ = closest_blocks.shape
+
+    def update_block_positions(block_id):
+        closest_block_i = closest_blocks[block_id]
+        # Calculate L1 distances from the origin
+        l1_distances = jnp.sum(jnp.abs(closest_block_i), axis=0)
+
+        # Sort based on L1 distance
+        sorted_indices = jnp.argsort(l1_distances)[:k]
+        sorted_block_positions = closest_block_i[:, sorted_indices]
+        return sorted_block_positions
+
+    block_ids = jnp.arange(num_blocks)
+    closest_blocks = jax.vmap(update_block_positions)(block_ids)
+
+    return closest_blocks
+
+
+def update_closest_blocks(state, old_pos, new_pos):
+    k = 5
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+    padded_grid = jnp.pad(
+        state.map,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    tl_corner = state.player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    player_pos = state.player_position
+    new_closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
+    old_blocks = state.closest_blocks
+    dx, dy = new_pos[0] - old_pos[0], new_pos[1] - old_pos[1]
+
+    height, width = obs_dim_array // 2
+    old_blocks_updated = update_relative_positions(old_blocks, dx, dy, height, width)
+
+    combined = jnp.concatenate([old_blocks_updated, new_closest_blocks], axis=-1)
+
+    new_closest_blocks = merge_old_new(combined, k)
+
+    state = state.replace(closest_blocks=new_closest_blocks)
+
+    return state
+
+
+def update_diffs(
+    state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory
+):
+    intrinsics_diff = jnp.array(updated_intrinsics - init_intrinsics, dtype=jnp.int32)
+    inventory_diff = Inventory(
+        wood=jnp.array(updated_inventory.wood - init_inventory.wood, dtype=jnp.int32),
+        stone=jnp.array(
+            updated_inventory.stone - init_inventory.stone, dtype=jnp.int32
+        ),
+        coal=jnp.array(updated_inventory.coal - init_inventory.coal, dtype=jnp.int32),
+        iron=jnp.array(updated_inventory.iron - init_inventory.iron, dtype=jnp.int32),
+        diamond=jnp.array(
+            updated_inventory.diamond - init_inventory.diamond, dtype=jnp.int32
+        ),
+        sapling=jnp.array(
+            updated_inventory.sapling - init_inventory.sapling, dtype=jnp.int32
+        ),
+        wood_pickaxe=jnp.array(
+            updated_inventory.wood_pickaxe - init_inventory.wood_pickaxe,
+            dtype=jnp.int32,
+        ),
+        stone_pickaxe=jnp.array(
+            updated_inventory.stone_pickaxe - init_inventory.stone_pickaxe,
+            dtype=jnp.int32,
+        ),
+        iron_pickaxe=jnp.array(
+            updated_inventory.iron_pickaxe - init_inventory.iron_pickaxe,
+            dtype=jnp.int32,
+        ),
+        wood_sword=jnp.array(
+            updated_inventory.wood_sword - init_inventory.wood_sword, dtype=jnp.int32
+        ),
+        stone_sword=jnp.array(
+            updated_inventory.stone_sword - init_inventory.stone_sword, dtype=jnp.int32
+        ),
+        iron_sword=jnp.array(
+            updated_inventory.iron_sword - init_inventory.iron_sword, dtype=jnp.int32
+        ),
+    )
+
+    state = state.replace(
+        intrinsics_diff=intrinsics_diff,
+        inventory_diff=inventory_diff,
+    )
+
+    return state
+
+
 def craftax_step(rng, state, action, params, static_params):
     init_achievements = state.achievements
     init_health = state.player_health
+    init_intrinsics = jnp.array(
+        [
+            state.player_health,
+            state.player_food,
+            state.player_drink,
+            state.player_energy,
+        ]
+    )
+    init_inventory = state.inventory
+
+    closest_blocks_init = state.closest_blocks
 
     # Interrupt action if sleeping
     action = jax.lax.select(state.is_sleeping, Action.NOOP.value, action)
@@ -1644,7 +1881,9 @@ def craftax_step(rng, state, action, params, static_params):
     state = place_block(state, action, static_params)
 
     # Movement
+    old_position = state.player_position
     state = move_player(state, action)
+    new_position = state.player_position
 
     # Mobs
     rng, _rng = jax.random.split(rng)
@@ -1677,5 +1916,26 @@ def craftax_step(rng, state, action, params, static_params):
         light_level=calculate_light_level(state.timestep + 1, params),
         state_rng=_rng,
     )
+
+    # update 5 closest blocks
+    state = update_closest_blocks(state, old_position, new_position)
+
+    updated_intrinsics = jnp.array(
+        [
+            state.player_health,
+            state.player_food,
+            state.player_drink,
+            state.player_energy,
+        ]
+    )
+    updated_inventory = state.inventory
+    state = update_diffs(
+        state,
+        init_intrinsics,
+        updated_intrinsics,
+        init_inventory,
+        updated_inventory,
+    )
+    state = state.replace(closest_blocks_prev=closest_blocks_init)
 
     return state, reward

@@ -103,6 +103,7 @@ def render_craftax_symbolic(state):
             intrinsics,
             direction,
             jnp.array([state.light_level, state.is_sleeping]),
+            state.closest_blocks[:, :, 0].flatten() / 10.0,
         ]
     )
 

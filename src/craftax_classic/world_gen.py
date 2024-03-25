@@ -1,7 +1,11 @@
 from functools import partial
 
 from craftax_classic.constants import *
-from craftax_classic.game_logic import calculate_light_level, get_distance_map
+from craftax_classic.game_logic import (
+    calculate_light_level,
+    find_closest_blocks,
+    get_distance_map,
+)
 from craftax_classic.envs.craftax_state import EnvState, Inventory, Mobs
 from craftax_classic.util.noise import generate_fractal_noise_2d
 
@@ -29,7 +33,11 @@ def generate_world(rng, params, static_params):
     # x_res = large_res
 
     water = generate_fractal_noise_2d(
-        _rng, static_params.map_size, small_res, octaves=1, override_angles=fractal_noise_angles[0]
+        _rng,
+        static_params.map_size,
+        small_res,
+        octaves=1,
+        override_angles=fractal_noise_angles[0],
     )
     water = water + player_proximity_map - 1.0
 
@@ -63,7 +71,13 @@ def generate_world(rng, params, static_params):
 
     rng, _rng = jax.random.split(rng)
     mountain = (
-        generate_fractal_noise_2d(_rng, static_params.map_size, small_res, octaves=1, override_angles=fractal_noise_angles[1])
+        generate_fractal_noise_2d(
+            _rng,
+            static_params.map_size,
+            small_res,
+            octaves=1,
+            override_angles=fractal_noise_angles[1],
+        )
         + 0.05
     )
     mountain = mountain + player_proximity_map - 1.0
@@ -71,7 +85,13 @@ def generate_world(rng, params, static_params):
 
     # Paths
     rng, _rng = jax.random.split(rng)
-    path_x = generate_fractal_noise_2d(_rng, static_params.map_size, x_res, octaves=1, override_angles=fractal_noise_angles[2])
+    path_x = generate_fractal_noise_2d(
+        _rng,
+        static_params.map_size,
+        x_res,
+        octaves=1,
+        override_angles=fractal_noise_angles[2],
+    )
     path = jnp.logical_and(mountain > mountain_threshold, path_x > 0.8)
     map = jnp.where(path > 0.5, BlockType.PATH.value, map)
 
@@ -109,7 +129,11 @@ def generate_world(rng, params, static_params):
     # Trees
     rng, _rng = jax.random.split(rng)
     tree_noise = generate_fractal_noise_2d(
-        _rng, static_params.map_size, larger_res, octaves=1, override_angles=fractal_noise_angles[3]
+        _rng,
+        static_params.map_size,
+        larger_res,
+        octaves=1,
+        override_angles=fractal_noise_angles[3],
     )
     tree = (tree_noise > 0.5) * jax.random.uniform(
         rng, shape=static_params.map_size
@@ -188,6 +212,18 @@ def generate_world(rng, params, static_params):
 
     rng, _rng = jax.random.split(rng)
 
+    k = 5
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+    padded_grid = jnp.pad(
+        map,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    tl_corner = player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
     state = EnvState(
         map=map,
         mob_map=jnp.zeros(static_params.map_size, dtype=bool),
@@ -215,6 +251,20 @@ def generate_world(rng, params, static_params):
         light_level=calculate_light_level(0, params),
         state_rng=_rng,
         timestep=0,
+        closest_blocks=closest_blocks,
+        player_state=0,
+        inventory_diff=Inventory(),
+        intrinsics_diff=jnp.array(
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dtype=jnp.int32,
+        ),
+        closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
+        task_done=False,
     )
 
     return state
@@ -283,6 +333,19 @@ def generate_random_world(rng, params, static_params):
         _rng, jnp.arange(2, 17), shape=static_params.map_size
     ).astype(int)
 
+    k = 5
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+    padded_grid = jnp.pad(
+        map,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    player_position = jnp.zeros(2, dtype=jnp.int32)
+    tl_corner = player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
     state = EnvState(
         map=map,
         player_position=jnp.zeros(2, dtype=jnp.int32),
@@ -308,6 +371,20 @@ def generate_random_world(rng, params, static_params):
         achievements=jnp.zeros((22,), dtype=bool),
         light_level=calculate_light_level(0),
         timestep=0,
+        closest_blocks=closest_blocks,
+        player_state=0,
+        inventory_diff=Inventory(),
+        intrinsics_diff=jnp.array(
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dtype=jnp.int32,
+        ),
+        closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
+        task_done=False,
     )
 
     return state
