@@ -123,7 +123,11 @@ def generate_world(rng, params, static_params):
     diamond_map = jnp.logical_and(
         mountain > 0.8, jax.random.uniform(_rng, static_params.map_size) < 0.005
     )
+
     diamond_map = jnp.logical_and(diamond_map, map == BlockType.STONE.value)
+
+    # Combine the original diamond map with the single diamond mask
+    # Note: This might need adjustment based on exact requirements for index mapping
     map = jnp.where(diamond_map, BlockType.DIAMOND.value, map)
 
     # Trees
@@ -147,6 +151,25 @@ def generate_world(rng, params, static_params):
         tree_noise > 0.7,
     )
     map = jnp.where(lava_map, BlockType.LAVA.value, map)
+
+    # add in a diamon if non were spawned
+    eligible_for_diamond = jnp.logical_and(mountain > 0.8, map == BlockType.STONE.value)
+    no_diamonds_spawned = ~jnp.any(map == BlockType.DIAMOND.value)
+    eligible_locations_count = jnp.sum(eligible_for_diamond)
+    max_indices = static_params.map_size[0] * static_params.map_size[1]
+    static_range = jnp.arange(max_indices)
+    eligible_flat = eligible_for_diamond.ravel()
+    probabilities = eligible_flat / eligible_locations_count
+    rng, _rng = jax.random.split(rng)
+    selected_index_flat = jax.random.choice(
+        _rng, static_range, p=probabilities, shape=()
+    )
+    selected_index_multi = jnp.unravel_index(
+        selected_index_flat, static_params.map_size
+    )
+    update_mask = jnp.zeros(map.shape, dtype=bool)
+    update_mask = update_mask.at[selected_index_multi].set(no_diamonds_spawned)
+    map = jnp.where(update_mask, BlockType.DIAMOND.value, map)
 
     # Make sure player spawns on grass
     map = map.at[player_position[0], player_position[1]].set(BlockType.GRASS.value)
