@@ -1723,14 +1723,6 @@ def update_relative_positions(closest_blocks, dx, dy, height, width):
         )
 
         # remove
-        # # Calculate L1 distances from the origin
-        # l1_distances = jnp.sum(jnp.abs(new_block_positions), axis=0)
-
-        # # Sort based on L1 distance
-        # sorted_indices = jnp.argsort(l1_distances)
-
-        # sorted_block_positions = new_block_positions[:, sorted_indices]
-        # Determine positions within the specified bounds
         within_bounds_y = jnp.abs(new_block_positions[0, :]) <= width
         within_bounds_x = jnp.abs(new_block_positions[1, :]) <= height
         within_bounds = within_bounds_y & within_bounds_x
@@ -1754,6 +1746,11 @@ def update_relative_positions(closest_blocks, dx, dy, height, width):
     closest_blocks = jax.vmap(update_block_positions)(block_ids)
 
     return closest_blocks
+
+
+# {diamond : [-1, -1]}
+# dx,dy = -1, 0
+# {diamond : [-2, -1]}
 
 
 def merge_old_new(closest_blocks, k):
@@ -1852,6 +1849,38 @@ def update_diffs(
     return state
 
 
+def update_seen_blocks(state):
+    seen_blocks = state.seen_blocks
+    # Assuming OBS_DIM, MAX_OBS_DIM, and BlockType are defined elsewhere
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+
+    # Pad seen_blocks similar to how the map is padded
+    padded_seen_blocks = jnp.pad(
+        seen_blocks,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=0,  # Assuming unseen areas are marked with 0
+    )
+
+    # Calculate the top-left corner for slicing, similar to map_view calculation
+    tl_corner = state.player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+
+    # Create a mask of ones for the viewing area
+    viewing_area_mask = jnp.ones(OBS_DIM, dtype=jnp.bool)
+
+    # Update the corresponding section of padded_seen_blocks to mark it as seen
+    # Here we use dynamic_update_slice for in-place updates
+    updated_padded_seen_blocks = jax.lax.dynamic_update_slice(
+        padded_seen_blocks, viewing_area_mask, tl_corner
+    )
+
+    # Remove padding to match the original size of seen_blocks
+    updated_seen_blocks = updated_padded_seen_blocks[
+        MAX_OBS_DIM + 2 : -MAX_OBS_DIM - 2, MAX_OBS_DIM + 2 : -MAX_OBS_DIM - 2
+    ]
+    state = state.replace(seen_blocks=updated_seen_blocks)
+    return state
+
+
 def craftax_step(rng, state, action, params, static_params):
     init_achievements = state.achievements
     init_health = state.player_health
@@ -1937,5 +1966,6 @@ def craftax_step(rng, state, action, params, static_params):
         updated_inventory,
     )
     state = state.replace(closest_blocks_prev=closest_blocks_init)
+    state = update_seen_blocks(state)
 
     return state, reward

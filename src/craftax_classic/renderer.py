@@ -96,6 +96,11 @@ def render_craftax_symbolic(state):
 
     direction = jax.nn.one_hot(state.player_direction - 1, num_classes=4)
 
+    seen_blocks = state.seen_blocks.reshape((8, 8, 8, 8))
+
+    seen_blocks_chunked = jnp.all(seen_blocks, axis=(-3, -1)).astype(jnp.float16)
+    position = state.player_position / 64.0 - 0.5
+
     all_flattened = jnp.concatenate(
         [
             all_map.flatten(),
@@ -103,7 +108,9 @@ def render_craftax_symbolic(state):
             intrinsics,
             direction,
             jnp.array([state.light_level, state.is_sleeping]),
-            # state.closest_blocks[:, :, 0].flatten() / 10.0,
+            state.closest_blocks[:, :, 0].flatten() / 10.0,
+            # seen_blocks_chunked.flatten(),
+            # position.flatten()
         ]
     )
 

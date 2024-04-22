@@ -152,7 +152,7 @@ def generate_world(rng, params, static_params):
     )
     map = jnp.where(lava_map, BlockType.LAVA.value, map)
 
-    # add in a diamon if non were spawned
+    # add in a diamond if non were spawned
     eligible_for_diamond = jnp.logical_and(mountain > 0.8, map == BlockType.STONE.value)
     no_diamonds_spawned = ~jnp.any(map == BlockType.DIAMOND.value)
     eligible_locations_count = jnp.sum(eligible_for_diamond)
@@ -287,6 +287,7 @@ def generate_world(rng, params, static_params):
             dtype=jnp.int32,
         ),
         closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
+        seen_blocks=jnp.zeros_like(map, dtype=bool),
         task_done=False,
     )
 
@@ -408,6 +409,7 @@ def generate_random_world(rng, params, static_params):
         ),
         closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
         task_done=False,
+        seen_blocks=jnp.zeros_like(map, dtype=bool),
     )
 
     return state

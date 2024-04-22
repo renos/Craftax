@@ -76,6 +76,7 @@ class EnvState:
     inventory_diff: Inventory
     intrinsics_diff: jnp.ndarray
     closest_blocks_prev: jnp.ndarray
+    seen_blocks: jnp.ndarray
     task_done: bool
 
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)

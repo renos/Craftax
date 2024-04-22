@@ -8,6 +8,12 @@ batch_logs = {}
 log_times = []
 
 
+def reset_logs():
+    global batch_logs, log_times
+    batch_logs = {}
+    log_times = []
+
+
 def create_log_dict(info, config):
     to_log = {
         "episode_return": info["returned_episode_returns"],
@@ -91,5 +97,5 @@ def batch_log(update_step, log, config):
                 )
                 sps = steps_between_updates / dt
                 agg_logs["sps"] = sps
-
+        print("wandb should be logging")
         wandb.log(agg_logs)
