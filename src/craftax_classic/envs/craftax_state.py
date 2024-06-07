@@ -21,6 +21,15 @@ class Inventory:
     stone_sword: int = 0
     iron_sword: int = 0
 
+    def __str__(self):
+        return (
+            f"Inventory(wood={self.wood}, stone={self.stone}, coal={self.coal}, "
+            f"iron={self.iron}, diamond={self.diamond}, sapling={self.sapling}, "
+            f"wood_pickaxe={self.wood_pickaxe}, stone_pickaxe={self.stone_pickaxe}, "
+            f"iron_pickaxe={self.iron_pickaxe}, wood_sword={self.wood_sword}, "
+            f"stone_sword={self.stone_sword}, iron_sword={self.iron_sword})"
+        )
+
 
 @struct.dataclass
 class Mobs:
