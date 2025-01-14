@@ -281,14 +281,17 @@ class TaskGoalOptimisticResetVecEnvWrapper(GymnaxWrapper):
         return obs, env_state
 
     @partial(jax.jit, static_argnums=(0, 6))
-    def step(self, rng, state, action, obs_bg, state_bg, params=None):
+    def step(self, rng, state, action, state_bg, obs_bg, params=None):
 
         rng, _rng = jax.random.split(rng)
         rngs = jax.random.split(_rng, self.num_envs)
         obs_st, state_st, reward, done, info = self.step_fn(rngs, state, action, params)
 
-        reached_goal = jax.tree_map(lambda x: x == self.num_tasks, state_st.env_state.player_state)
-        incremented_state = jax.tree_map(lambda x, y: x > y, state_st.env_state.player_state, state.env_state.player_state)
+        reached_goal = jnp.equal(state.env_state.player_state, self.num_tasks)
+        incremented_state = state.env_state.player_state_diff
+        # jax.debug.print("incremented_state {}", incremented_state.sum())
+        # jax.debug.print("reached_goal {}", reached_goal.sum())
+        # jax.debug.print("done {}", done.sum())
 
         rng, _rng = jax.random.split(rng)
         rngs = jax.random.split(_rng, self.num_resets)
@@ -308,20 +311,38 @@ class TaskGoalOptimisticResetVecEnvWrapper(GymnaxWrapper):
 
         obs_re = obs_re[reset_indexes]
         state_re = jax.tree_map(lambda x: x[reset_indexes], state_re)
-
         # Auto-reset environment based on termination
-        def auto_reset(done, state_re, state_st, obs_re, obs_st):
-            state = jax.tree_map(
-                lambda x, y: jax.lax.select(done, x, y), state_re, state_st
+        def auto_reset(done, reached_goal, incremented_state, state_re, state_st, obs_re, obs_st, obs_bg, state_bg):
+            # state = jax.tree_map(
+            #     lambda x, y: jax.lax.select(done, x, y), state_re, state_st
+            # )
+            # obs = jax.lax.select(done, obs_re, obs_st)
+
+            # return state, obs
+            state_2 = jax.tree_map(
+                lambda x, y: jax.lax.select(done, x, y), state_bg, state_st
             )
-            obs = jax.lax.select(done, obs_re, obs_st)
-            jax.debug.breakpoint()
+            obs_2 = jax.lax.select(done, obs_bg, obs_st)
+            #state_2, obs_2 = state_st, obs_st
+            #replaced reached goal
+            state = jax.tree_map(
+                lambda x, y: jax.lax.select(reached_goal, x, y), state_re, state_2
+            )
+            obs = jax.lax.select(reached_goal, obs_re, obs_2)
 
-            return state, obs
+            #update when incremented
+            obs_bg = jax.lax.select(incremented_state, obs, obs_bg)
+            state_bg = jax.tree_map(
+                lambda x, y: jax.lax.select(incremented_state, x, y), state, state_bg
+            )
+            
 
-        state, obs = jax.vmap(auto_reset)(done, state_re, state_st, obs_re, obs_st)
+            return state, obs, obs_bg, state_bg
 
-        return obs, state, reward, done, info
+            
+
+        state, obs, obs_bg, state_bg = jax.vmap(auto_reset)(done, reached_goal, incremented_state, state_re, state_st, obs_re, obs_st, obs_bg, state_bg)
+        return obs, state, reward, done, info, state_bg, obs_bg
 
 
 class OptimisticResetVecEnvWrapper(GymnaxWrapper):

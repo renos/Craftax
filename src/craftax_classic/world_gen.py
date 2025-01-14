@@ -276,6 +276,7 @@ def generate_world(rng, params, static_params):
         timestep=0,
         closest_blocks=closest_blocks,
         player_state=0,
+        player_state_diff=0,
         inventory_diff=Inventory(),
         intrinsics_diff=jnp.array(
             [
@@ -398,6 +399,7 @@ def generate_random_world(rng, params, static_params):
         timestep=0,
         closest_blocks=closest_blocks,
         player_state=0,
+        player_state_diff=0,
         inventory_diff=Inventory(),
         intrinsics_diff=jnp.array(
             [

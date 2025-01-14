@@ -82,6 +82,7 @@ class EnvState:
 
     closest_blocks: jnp.ndarray
     player_state: jnp.ndarray
+    player_state_diff: jnp.ndarray
     inventory_diff: Inventory
     intrinsics_diff: jnp.ndarray
     achievements_diff: jnp.ndarray
