@@ -1802,7 +1802,7 @@ def update_closest_blocks(state, old_pos, new_pos):
 
 
 def update_diffs(
-    state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory
+    state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory, init_achievements, updated_achievements
 ):
     intrinsics_diff = jnp.array(updated_intrinsics - init_intrinsics, dtype=jnp.int32)
     inventory_diff = Inventory(
@@ -1840,10 +1840,12 @@ def update_diffs(
             updated_inventory.iron_sword - init_inventory.iron_sword, dtype=jnp.int32
         ),
     )
+    achievements_diff = jnp.array(jnp.array(updated_achievements, dtype=jnp.int32) - jnp.array(init_achievements, dtype=jnp.int32), dtype=jnp.bool)
 
     state = state.replace(
         intrinsics_diff=intrinsics_diff,
         inventory_diff=inventory_diff,
+        achievements_diff=achievements_diff,
     )
 
     return state
@@ -1964,6 +1966,8 @@ def craftax_step(rng, state, action, params, static_params):
         updated_intrinsics,
         init_inventory,
         updated_inventory,
+        init_achievements,
+        state.achievements,
     )
     state = state.replace(closest_blocks_prev=closest_blocks_init)
     state = update_seen_blocks(state)
