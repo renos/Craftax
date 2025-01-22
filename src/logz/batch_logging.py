@@ -24,9 +24,9 @@ def create_log_dict(info, config):
 
     for i, state in enumerate(info["reached_state"]):
         to_log[f"state_{i}_reached_prob"] = state
-    
-    for i, state in enumerate(info["state_percentages"]):
-        to_log[f"state_{i}_percentage"] = state
+
+    # for i, state in enumerate(info["state_percentages"]):
+    #     to_log[f"state_{i}_percentage"] = state
 
     if "Craftax" in config["ENV_NAME"]:
         to_log["score"] = info["score"]
