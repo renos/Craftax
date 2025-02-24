@@ -61,7 +61,7 @@ class AutoResetEnvWrapper(GymnaxWrapper):
         return self._env.reset(key, params)
 
     @partial(jax.jit, static_argnums=(0, 4))
-    def step(self, rng, state, action, state_bg=None, params=None):
+    def step(self, rng, state, action, params=None):
 
         rng, _rng = jax.random.split(rng)
         obs_st, state_st, reward, done, info = self._env.step(
