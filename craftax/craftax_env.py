@@ -55,6 +55,73 @@ def make_craftax_env_from_name(name: str, auto_reset: bool):
     raise ValueError(f"Unknown craftax environment: {name}")
 
 
+
+def make_craftax_flow_env_from_name(name: str, auto_reset: bool, module_dict):
+    if auto_reset:
+        assert 0, "Not implemented"
+        # if name == "Craftax-Symbolic-v1" or name == "Craftax-Symbolic-AutoReset-v1":
+        #     from craftax.craftax.envs.craftax_symbolic_env import CraftaxSymbolicEnv
+
+        #     return CraftaxSymbolicEnv()
+        # elif name == "Craftax-Pixels-v1" or name == "Craftax-Pixels-AutoReset-v1":
+        #     from craftax.craftax.envs.craftax_pixels_env import CraftaxPixelsEnv
+
+        #     return CraftaxPixelsEnv()
+        # if (
+        #     name == "Craftax-Classic-Symbolic-v1"
+        #     or name == "Craftax-Classic-Symbolic-AutoReset-v1"
+        # ):
+        #     from craftax.craftax_classic.envs.craftax_symbolic_env import (
+        #         CraftaxClassicSymbolicEnv,
+        #     )
+
+        #     return CraftaxClassicSymbolicEnv()
+        # elif (
+        #     name == "Craftax-Classic-Pixels-v1"
+        #     or name == "Craftax-Classic-Pixels-AutoReset-v1"
+        # ):
+        #     from craftax.craftax_classic.envs.craftax_pixels_env import (
+        #         CraftaxClassicPixelsEnv,
+        #     )
+
+        #     return CraftaxClassicPixelsEnv()
+    else:
+        if name == "Craftax-Symbolic-v1":
+            from craftax.craftax.envs.craftax_flow_symbolic_env import (
+                CraftaxSymbolicEnvNoAutoReset,
+            )
+            return CraftaxSymbolicEnvNoAutoReset(module_dict=module_dict)
+            # from craftax.craftax.envs.craftax_symbolic_env import CraftaxSymbolicEnvNoAutoReset
+            # return CraftaxSymbolicEnvNoAutoReset()
+        elif name == "Craftax-Pixels-v1":
+            # from craftax.craftax.envs.craftax_pixels_env import (
+            #     CraftaxPixelsEnvNoAutoReset,
+            # )
+
+            # return CraftaxPixelsEnvNoAutoReset()
+            assert 0, "Not implemented"
+        elif name == "Craftax-Classic-Symbolic-v1":
+            # from craftax.craftax_classic.envs.craftax_symbolic_env import (
+            #     CraftaxClassicSymbolicEnvNoAutoReset,
+            # )
+
+            # return CraftaxClassicSymbolicEnvNoAutoReset()
+            from craftax.craftax_classic.envs.craftax_flow_symbolic_env import (
+                CraftaxClassicSymbolicEnvNoAutoReset,
+            )
+            return CraftaxClassicSymbolicEnvNoAutoReset(module_dict=module_dict)
+            assert 0, "Not implemented"
+        elif name == "Craftax-Classic-Pixels-v1":
+            # from craftax.craftax_classic.envs.craftax_pixels_env import (
+            #     CraftaxClassicPixelsEnvNoAutoReset,
+            # )
+
+            # return CraftaxClassicPixelsEnvNoAutoReset()
+            assert 0, "Not implemented"
+
+    raise ValueError(f"Unknown craftax environment: {name}")
+
+
 def make_craftax_env_from_params(classic: bool, symbolic: bool, auto_reset: bool):
     if classic:
         if symbolic:

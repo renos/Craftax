@@ -192,6 +192,7 @@ def render_craftax_symbolic(state: EnvState):
             armour,
             armour_enchantments,
             special_values,
+            state.closest_blocks[:, :, 0].flatten() / 10.0,
         ]
     )
 

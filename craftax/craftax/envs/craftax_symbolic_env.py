@@ -60,6 +60,7 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         info = log_achievements_to_info(state, done)
         info["discount"] = self.discount(state, params)
 
+
         return (
             lax.stop_gradient(self.get_obs(state)),
             lax.stop_gradient(state),
@@ -97,8 +98,9 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
         inventory_obs_shape = get_inventory_obs_shape()
+        relative_positions_shape = 2 * len(BlockType)
 
-        obs_shape = flat_map_obs_shape + inventory_obs_shape
+        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
 
         return spaces.Box(
             0.0,
@@ -170,8 +172,9 @@ class CraftaxSymbolicEnv(environment.Environment):
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
         inventory_obs_shape = get_inventory_obs_shape()
+        relative_positions_shape = 2 * len(BlockType)
 
-        obs_shape = flat_map_obs_shape + inventory_obs_shape
+        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
 
         return spaces.Box(
             0.0,

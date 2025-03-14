@@ -1,3 +1,4 @@
+from Craftax.craftax.craftax_classic.util.relative_positions import update_closest_blocks
 import chex
 
 from craftax.craftax_classic.constants import *
@@ -1637,9 +1638,40 @@ def cap_inventory(state):
     return state
 
 
+def update_diffs(
+    state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory, init_achievements, updated_achievements
+):
+    intrinsics_diff = jnp.array(updated_intrinsics - init_intrinsics, dtype=jnp.int32)
+    inventory_diff = jax.tree_map(
+    lambda x, y: jnp.array(x - y, dtype=jnp.int32),
+    updated_inventory,
+    init_inventory
+    )
+    achievements_diff = jnp.array(jnp.array(updated_achievements, dtype=jnp.int32) - jnp.array(init_achievements, dtype=jnp.int32), dtype=jnp.bool)
+
+    state = state.replace(
+        intrinsics_diff=intrinsics_diff,
+        inventory_diff=inventory_diff,
+        achievements_diff=achievements_diff,
+    )
+
+    return state
+
 def craftax_step(rng, state, action, params, static_params):
     init_achievements = state.achievements
     init_health = state.player_health
+
+    init_intrinsics = jnp.array(
+        [
+            state.player_health,
+            state.player_food,
+            state.player_drink,
+            state.player_energy,
+        ]
+    )
+    init_inventory = state.inventory
+
+    closest_blocks_init = state.closest_blocks
 
     # Interrupt action if sleeping
     action = jax.lax.select(state.is_sleeping, Action.NOOP.value, action)
@@ -1655,7 +1687,9 @@ def craftax_step(rng, state, action, params, static_params):
     state = place_block(state, action, static_params)
 
     # Movement
+    old_position = state.player_position
     state = move_player(state, action)
+    new_position = state.player_position
 
     # Mobs
     rng, _rng = jax.random.split(rng)
@@ -1688,5 +1722,27 @@ def craftax_step(rng, state, action, params, static_params):
         light_level=calculate_light_level(state.timestep + 1, params),
         state_rng=_rng,
     )
+
+    state = update_closest_blocks(state, old_position, new_position, OBS_DIM, MAX_OBS_DIM, BlockType)
+
+    updated_intrinsics = jnp.array(
+        [
+            state.player_health,
+            state.player_food,
+            state.player_drink,
+            state.player_energy,
+        ]
+    )
+    updated_inventory = state.inventory
+    state = update_diffs(
+        state,
+        init_intrinsics,
+        updated_intrinsics,
+        init_inventory,
+        updated_inventory,
+        init_achievements,
+        state.achievements,
+    )
+    state = state.replace(closest_blocks_prev=closest_blocks_init)
 
     return state, reward

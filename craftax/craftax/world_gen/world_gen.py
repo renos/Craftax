@@ -1,3 +1,4 @@
+from Craftax.craftax.craftax.util.relative_positions import find_closest_blocks
 import jax
 import jax.scipy as jsp
 
@@ -636,6 +637,21 @@ def generate_world(rng, params, static_params):
     growing_plants_age = jnp.zeros(static_params.max_growing_plants, dtype=jnp.int32)
     growing_plants_mask = jnp.zeros(static_params.max_growing_plants, dtype=bool)
 
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+
+    # Map
+    #looking at map 0 since player spawns in overworld
+    padded_grid = jnp.pad(
+        map[0],
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    tl_corner = player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
     # Potion mapping for episode
     rng, _rng = jax.random.split(rng)
     potion_mapping = jax.random.permutation(_rng, jnp.arange(6))
@@ -705,6 +721,22 @@ def generate_world(rng, params, static_params):
         light_level=jnp.asarray(calculate_light_level(0, params), dtype=jnp.float32),
         state_rng=_rng,
         timestep=jnp.asarray(0, dtype=jnp.int32),
+        closest_blocks=closest_blocks,
+        player_state=0,
+        player_state_diff=0,
+        inventory_diff=get_new_empty_inventory(),
+        intrinsics_diff=jnp.array(
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dtype=jnp.int32,
+        ),
+        task_done = False,
+        achievements_diff=jnp.zeros((len(Achievement),), dtype=jnp.bool),
+        closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
     )
 
     return state

@@ -105,6 +105,15 @@ class EnvState:
 
     timestep: int
 
+    closest_blocks: jnp.ndarray
+    player_state: jnp.ndarray
+    player_state_diff: jnp.ndarray
+    inventory_diff: Inventory
+    intrinsics_diff: jnp.ndarray
+    achievements_diff: jnp.ndarray
+    closest_blocks_prev: jnp.ndarray
+    task_done: bool
+
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
 
 

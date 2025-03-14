@@ -1,5 +1,6 @@
 from functools import partial
 
+from Craftax.craftax.craftax_classic.util.relative_positions import find_closest_blocks
 from craftax.craftax_classic.constants import *
 from craftax.craftax_classic.game_logic import calculate_light_level, get_distance_map
 from craftax.craftax_classic.envs.craftax_state import EnvState, Inventory, Mobs
@@ -227,6 +228,18 @@ def generate_world(rng, params, static_params):
 
     rng, _rng = jax.random.split(rng)
 
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+    padded_grid = jnp.pad(
+        map,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    tl_corner = player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
+
     state = EnvState(
         map=map,
         mob_map=jnp.zeros(static_params.map_size, dtype=bool),
@@ -254,6 +267,22 @@ def generate_world(rng, params, static_params):
         light_level=calculate_light_level(0, params),
         state_rng=_rng,
         timestep=0,
+        closest_blocks=closest_blocks,
+        player_state=0,
+        player_state_diff=0,
+        inventory_diff=Inventory(),
+        intrinsics_diff=jnp.array(
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dtype=jnp.int32,
+        ),
+        achievements_diff=jnp.zeros((len(Achievement),), dtype=jnp.bool),
+        closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
+        task_done=False,
     )
 
     return state
@@ -322,6 +351,18 @@ def generate_random_world(rng, params, static_params):
         _rng, jnp.arange(2, 17), shape=static_params.map_size
     ).astype(int)
 
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+    padded_grid = jnp.pad(
+        map,
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    player_position = jnp.zeros(2, dtype=jnp.int32)
+    tl_corner = player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+
     state = EnvState(
         map=map,
         player_position=jnp.zeros(2, dtype=jnp.int32),
@@ -347,6 +388,22 @@ def generate_random_world(rng, params, static_params):
         achievements=jnp.zeros((22,), dtype=bool),
         light_level=calculate_light_level(0),
         timestep=0,
+        closest_blocks=closest_blocks,
+        player_state=0,
+        player_state_diff=0,
+        inventory_diff=Inventory(),
+        intrinsics_diff=jnp.array(
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+            dtype=jnp.int32,
+        ),
+        achievements_diff=jnp.zeros((22,), dtype=jnp.bool),
+        closest_blocks_prev=jnp.zeros_like(closest_blocks, dtype=jnp.int32),
+        task_done=False,
     )
 
     return state
