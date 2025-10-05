@@ -1,0 +1,165 @@
+from dataclasses import dataclass
+from typing import Tuple, Any
+
+import jax.random
+from flax import struct
+import jax.numpy as jnp
+
+
+@struct.dataclass
+class Inventory:
+    # Original Craftax Classic items
+    wood: int = 0
+    stone: int = 0
+    coal: int = 0
+    iron: int = 0
+    diamond: int = 0
+    sapling: int = 0
+    wood_pickaxe: int = 0
+    stone_pickaxe: int = 0
+    iron_pickaxe: int = 0
+    wood_sword: int = 0
+    stone_sword: int = 0
+    iron_sword: int = 0
+
+    # NEW FABRAX ITEMS
+    # Raw materials
+    copper: int = 0
+    tin: int = 0
+    sand: int = 0  # Already exists as block but now also inventory item
+    clay: int = 0
+    limestone: int = 0
+    leather: int = 0  # From cows
+
+    # Intermediate materials
+    iron_bar: int = 0
+    steel_bar: int = 0
+    bronze_bar: int = 0
+    glass: int = 0
+    brick: int = 0
+    lime: int = 0
+    tar: int = 0
+
+    # Crafted items
+    bottle: int = 0
+    lens: int = 0
+    telescope: int = 0
+    mortar: int = 0
+    fertilizer: int = 0
+    flux: int = 0
+
+    # New tools
+    steel_pickaxe: int = 0
+    bronze_pickaxe: int = 0
+    steel_sword: int = 0
+    bronze_sword: int = 0
+
+    # Potions/Tonics
+    tonic_basic: int = 0
+    tonic_stoneskin: int = 0
+
+
+@struct.dataclass
+class Mobs:
+    position: jnp.ndarray
+    health: int
+    mask: bool
+    attack_cooldown: int
+
+
+@struct.dataclass
+class EnvState:
+    map: jnp.ndarray
+    mob_map: jnp.ndarray
+
+    player_position: jnp.ndarray
+    player_direction: int
+
+    # Intrinsics
+    player_health: int
+    player_food: int
+    player_drink: int
+    player_energy: int
+    is_sleeping: bool
+
+    # Second order intrinsics
+    player_recover: float
+    player_hunger: float
+    player_thirst: float
+    player_fatigue: float
+
+    inventory: Inventory
+
+    zombies: Mobs
+    cows: Mobs
+    skeletons: Mobs
+    arrows: Mobs
+    arrow_directions: jnp.ndarray
+
+    growing_plants_positions: jnp.ndarray
+    growing_plants_age: jnp.ndarray
+    growing_plants_mask: jnp.ndarray
+
+    light_level: float
+
+    achievements: jnp.ndarray
+
+    state_rng: Any
+
+    timestep: int
+
+    # NEW FABRAX STATE FIELDS
+    # Station tracking for adjacency bonuses
+    station_map: jnp.ndarray  # Track anvils, kilns, composters, alchemy benches
+
+    # Buff system
+    player_buffs: jnp.ndarray  # [stoneskin_duration, ...]
+    tool_hardened: jnp.ndarray  # [steel_pick_hardened, bronze_pick_hardened, ...]
+
+    # Furnace speed modifiers
+    furnace_speed_map: jnp.ndarray  # Track bellows/flux adjacency bonuses
+
+    closest_blocks: jnp.ndarray
+    player_state: jnp.ndarray
+    player_state_diff: jnp.ndarray
+    inventory_diff: Inventory
+    intrinsics_diff: jnp.ndarray
+    achievements_diff: jnp.ndarray
+    closest_blocks_prev: jnp.ndarray
+    task_done: bool
+
+    fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
+
+
+@struct.dataclass
+class EnvParams:
+    max_timesteps: int = 10000
+    day_length: int = 300
+
+    always_diamond: bool = True
+
+    zombie_health: int = 5
+    cow_health: int = 3
+    skeleton_health: int = 3
+
+    mob_despawn_distance: int = 14
+
+    spawn_cow_chance: float = 0.1
+    spawn_zombie_base_chance: float = 0.02
+    spawn_zombie_night_chance: float = 0.1
+    spawn_skeleton_chance: float = 0.05
+
+    fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
+    intrinsics_reward: bool = False
+
+
+@struct.dataclass
+class StaticEnvParams:
+    map_size: Tuple[int, int] = (64, 64)
+
+    # Mobs
+    max_zombies: int = 3
+    max_cows: int = 3
+    max_growing_plants: int = 10
+    max_skeletons: int = 2
+    max_arrows: int = 3

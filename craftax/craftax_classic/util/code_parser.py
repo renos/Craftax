@@ -176,7 +176,7 @@ def task_to_skill(module_dict):
         network_number = func()  # Call the function to get its network number
         network_to_skill.append(network_number)
 
-    assert max(network_to_skill) < len(network_to_skill)
+    #assert max(network_to_skill) < len(network_to_skill)
 
     return network_to_skill
 

@@ -13,7 +13,7 @@ def find_closest_blocks(player_position, semantic_map, k=5):
         y_grid - player_position[0]
     )
 
-    # Prepare for the output
+    # Prepare for the output (kept as in original; overwritten later)
     closest_blocks_positions = jnp.full((k, 2, num_blocks), jnp.nan)
 
     def process_block_type(block_id):
@@ -34,7 +34,7 @@ def find_closest_blocks(player_position, semantic_map, k=5):
         is_inf_mask = jnp.isinf(flat_distances[sorted_indices])
 
         # Replace positions corresponding to inf distances with the predetermined far away value
-        # Assuming (20, 20) is outside your map and used as a placeholder for 'far away'
+        # Assuming (30, 30) is outside your map and used as a placeholder for 'far away'
         far_away_value = jnp.array([30, 30])
         closest_y = jnp.where(is_inf_mask, far_away_value[0], sorted_y_relative)
         closest_x = jnp.where(is_inf_mask, far_away_value[1], sorted_x_relative)
@@ -48,42 +48,46 @@ def find_closest_blocks(player_position, semantic_map, k=5):
 
 
 def update_relative_positions(closest_blocks, dx, dy, height, width):
+    """
+    NOTE: height and width are the HALF-dimensions of the current OBS window.
+    We intentionally mark entries that are **within** the current window as (30,30)
+    so that fresh detections can replace them.
+    """
     num_blocks, _, k = closest_blocks.shape
 
     def update_block_positions(block_id):
-        # new_block_positions = closest_blocks[block_id] - jnp.array([dx, dy]).reshape(
-        #     (2, 1)
-        # )
-        block_positions = closest_blocks[block_id]
-        not_nan_mask = jnp.logical_or(
-            block_positions[0, :] != 30, block_positions[1, :] != 30
-        )
-        subtraction_array = jnp.array([dy, dx]).reshape((2, 1))
+        block_positions = closest_blocks[block_id]  # shape (2, k), rows: [x, y]
 
-        # Apply subtraction only to entries that are not (30, 30)
+        # Correct sentinel mask: sentinel is exactly (30, 30)
+        valid_mask = ~(
+            (block_positions[0, :] == 30) & (block_positions[1, :] == 30)
+        )
+
+        # Apply correct deltas in [x, y] order: subtract Δx from x and Δy from y
+        subtraction_array = jnp.array([dx, dy]).reshape((2, 1))
         new_block_positions = jnp.where(
-            not_nan_mask, block_positions - subtraction_array, block_positions
+            jnp.stack([valid_mask, valid_mask], axis=0),
+            block_positions - subtraction_array,
+            block_positions,
         )
 
-        # remove
-        within_bounds_y = jnp.abs(new_block_positions[0, :]) <= width
-        within_bounds_x = jnp.abs(new_block_positions[1, :]) <= height
-        within_bounds = within_bounds_y & within_bounds_x
+        # Bounds check with half-dimensions: x vs width, y vs height
+        x_rel = new_block_positions[0, :]
+        y_rel = new_block_positions[1, :]
 
-        # Use jnp.where to replace entries within bounds with (20, 20), respecting the y-first order
-        replaced_block_positions_y = jnp.where(
-            within_bounds, 30, new_block_positions[0, :]
-        )
-        replaced_block_positions_x = jnp.where(
-            within_bounds, 30, new_block_positions[1, :]
-        )
+        within_bounds_x = jnp.abs(x_rel) <= width    # x compared to half-width
+        within_bounds_y = jnp.abs(y_rel) <= height   # y compared to half-height
+        within_bounds = within_bounds_x & within_bounds_y
 
-        # Reconstruct the positions array with replaced values
+        # Per your desired behavior: mark IN-BOUNDS entries as sentinel (30,30)
+        replaced_block_positions_x = jnp.where(within_bounds, 30, x_rel)
+        replaced_block_positions_y = jnp.where(within_bounds, 30, y_rel)
+
         replaced_block_positions = jnp.stack(
-            (replaced_block_positions_y, replaced_block_positions_x), axis=0
+            (replaced_block_positions_x, replaced_block_positions_y), axis=0
         )
 
-        return replaced_block_positions  # replaced_block_positions
+        return replaced_block_positions
 
     block_ids = jnp.arange(num_blocks)
     closest_blocks = jax.vmap(update_block_positions)(block_ids)
@@ -130,8 +134,11 @@ def update_closest_blocks(state, old_pos, new_pos, OBS_DIM, MAX_OBS_DIM, BlockTy
     new_closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
 
     old_blocks = state.closest_blocks
-    dx, dy = new_pos[0] - old_pos[0], new_pos[1] - old_pos[1]
 
+    # FIX: dx is Δx (columns), dy is Δy (rows)
+    dx, dy = new_pos[1] - old_pos[1], new_pos[0] - old_pos[0]
+
+    # Pass half-dimensions (to be used as bounds)
     height, width = obs_dim_array // 2
     old_blocks_updated = update_relative_positions(old_blocks, dx, dy, height, width)
 
@@ -142,3 +149,4 @@ def update_closest_blocks(state, old_pos, new_pos, OBS_DIM, MAX_OBS_DIM, BlockTy
     state = state.replace(closest_blocks=new_closest_blocks)
 
     return state
+

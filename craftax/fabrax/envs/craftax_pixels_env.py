@@ -4,41 +4,19 @@ from typing import Tuple, Optional
 import chex
 
 from craftax.environment_base.environment_bases import EnvironmentNoAutoReset
-from craftax.craftax_classic.envs.common import compute_score
-from craftax.craftax_classic.constants import *
-from craftax.craftax_classic.game_logic import craftax_step, is_game_over
-from craftax.craftax_classic.envs.craftax_state import (
+from craftax.fabrax.envs.common import compute_score
+from craftax.fabrax.constants import *
+from craftax.fabrax.game_logic import craftax_step, is_game_over
+from craftax.fabrax.envs.craftax_state import (
     EnvState,
     EnvParams,
     StaticEnvParams,
 )
-from craftax.craftax_classic.renderer import render_craftax_symbolic
-from craftax.craftax_classic.world_gen import generate_world
+from craftax.fabrax.renderer import render_craftax_pixels
+from craftax.fabrax.world_gen import generate_world
 
 
-def get_map_obs_shape():
-    num_mobs = 4
-    num_blocks = len(BlockType)
-
-    return OBS_DIM[0], OBS_DIM[1], num_blocks + num_mobs
-
-
-def get_flat_map_obs_shape():
-    map_obs_shape = get_map_obs_shape()
-    return map_obs_shape[0] * map_obs_shape[1] * map_obs_shape[2]
-
-
-def get_inventory_obs_shape():
-    inv_size = 12
-    num_intrinsics = 4
-    light_level = 1
-    is_sleeping = 1
-    direction = 4
-
-    return inv_size + num_intrinsics + light_level + is_sleeping + direction
-
-
-class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
+class FabraxPixelsEnvNoAutoReset(EnvironmentNoAutoReset):
     def __init__(self, static_env_params: StaticEnvParams = None):
         super().__init__()
 
@@ -55,9 +33,10 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         return StaticEnvParams()
 
     def step_env(
-        self, rng: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
+        self, key: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
     ) -> Tuple[chex.Array, EnvState, float, bool, dict]:
-        state, reward = craftax_step(rng, state, action, params, self.static_env_params)
+
+        state, reward = craftax_step(key, state, action, params, self.static_env_params)
 
         done = self.is_terminal(state, params)
         info = compute_score(state, done)
@@ -79,7 +58,7 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_pixels(state, BLOCK_PIXEL_SIZE_AGENT) / 255.0
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -87,32 +66,29 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
 
     @property
     def name(self) -> str:
-        return "Craftax-Classic-Symbolic-NoAutoReset-v1"
+        return "Craftax-Classic-Pixels-NoAutoReset-v1"
 
     @property
     def num_actions(self) -> int:
-        return 17
+        return 44
 
     def action_space(self, params: Optional[EnvParams] = None) -> spaces.Discrete:
-        return spaces.Discrete(17)
+        return spaces.Discrete(44)
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
-        flat_map_obs_shape = get_flat_map_obs_shape()
-        inventory_obs_shape = get_inventory_obs_shape()
-        relative_positions_shape = 2 * len(BlockType)
-
-
-        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
-
         return spaces.Box(
             0.0,
             1.0,
-            (obs_shape,),
+            (
+                OBS_DIM[1] * BLOCK_PIXEL_SIZE_AGENT,
+                (OBS_DIM[0] + INVENTORY_OBS_HEIGHT) * BLOCK_PIXEL_SIZE_AGENT,
+                3,
+            ),
             dtype=jnp.float32,
         )
 
 
-class CraftaxClassicSymbolicEnv(environment.Environment):
+class FabraxPixelsEnv(environment.Environment):
     def __init__(self, static_env_params: StaticEnvParams = None):
         super().__init__()
 
@@ -129,9 +105,10 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
         return StaticEnvParams()
 
     def step_env(
-        self, rng: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
+        self, key: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
     ) -> Tuple[chex.Array, EnvState, float, bool, dict]:
-        state, reward = craftax_step(rng, state, action, params, self.static_env_params)
+
+        state, reward = craftax_step(key, state, action, params, self.static_env_params)
 
         done = self.is_terminal(state, params)
         info = compute_score(state, done)
@@ -153,7 +130,7 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_pixels(state, BLOCK_PIXEL_SIZE_AGENT) / 255.0
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -161,26 +138,23 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
 
     @property
     def name(self) -> str:
-        return "Craftax-Classic-Symbolic-v1"
+        return "Craftax-Classic-Pixels-v1"
 
     @property
     def num_actions(self) -> int:
-        return 17
+        return 44
 
     def action_space(self, params: Optional[EnvParams] = None) -> spaces.Discrete:
-        return spaces.Discrete(17)
+        return spaces.Discrete(44)
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
-        flat_map_obs_shape = get_flat_map_obs_shape()
-        inventory_obs_shape = get_inventory_obs_shape()
-
-        relative_positions_shape = 2 * len(BlockType)
-
-        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
-
         return spaces.Box(
             0.0,
             1.0,
-            (obs_shape,),
+            (
+                OBS_DIM[1] * BLOCK_PIXEL_SIZE_AGENT,
+                (OBS_DIM[0] + INVENTORY_OBS_HEIGHT) * BLOCK_PIXEL_SIZE_AGENT,
+                3,
+            ),
             dtype=jnp.float32,
         )

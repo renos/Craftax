@@ -26,6 +26,25 @@ def make_craftax_env_from_name(name: str, auto_reset: bool):
             )
 
             return CraftaxClassicPixelsEnv()
+        # NEW FABRAX ENVIRONMENTS
+        elif (
+            name == "Fabrax-Symbolic-v1"
+            or name == "Fabrax-Symbolic-AutoReset-v1"
+        ):
+            from craftax.fabrax.envs.craftax_symbolic_env import (
+                FabraxSymbolicEnv,
+            )
+
+            return FabraxSymbolicEnv()
+        elif (
+            name == "Fabrax-Pixels-v1"
+            or name == "Fabrax-Pixels-AutoReset-v1"
+        ):
+            from craftax.fabrax.envs.craftax_pixels_env import (
+                FabraxPixelsEnv,
+            )
+
+            return FabraxPixelsEnv()
     else:
         if name == "Craftax-Symbolic-v1":
             from craftax.craftax.envs.craftax_symbolic_env import (
@@ -51,6 +70,19 @@ def make_craftax_env_from_name(name: str, auto_reset: bool):
             )
 
             return CraftaxClassicPixelsEnvNoAutoReset()
+        # NEW FABRAX ENVIRONMENTS (NO AUTO RESET)
+        elif name == "Fabrax-Symbolic-v1":
+            from craftax.fabrax.envs.craftax_symbolic_env import (
+                FabraxSymbolicEnvNoAutoReset,
+            )
+
+            return FabraxSymbolicEnvNoAutoReset()
+        elif name == "Fabrax-Pixels-v1":
+            from craftax.fabrax.envs.craftax_pixels_env import (
+                FabraxPixelsEnvNoAutoReset,
+            )
+
+            return FabraxPixelsEnvNoAutoReset()
 
     raise ValueError(f"Unknown craftax environment: {name}")
 
@@ -110,7 +142,11 @@ def make_craftax_flow_env_from_name(name: str, auto_reset: bool, module_dict):
                 CraftaxClassicSymbolicEnvNoAutoReset,
             )
             return CraftaxClassicSymbolicEnvNoAutoReset(module_dict=module_dict)
-            assert 0, "Not implemented"
+        elif name == "Fabrax-Symbolic-v1":
+            from craftax.fabrax.envs.craftax_flow_symbolic_env import (
+                FabraxFlowSymbolicEnvNoAutoReset,
+            )
+            return FabraxFlowSymbolicEnvNoAutoReset(module_dict=module_dict)
         elif name == "Craftax-Classic-Pixels-v1":
             # from craftax.craftax_classic.envs.craftax_pixels_env import (
             #     CraftaxClassicPixelsEnvNoAutoReset,

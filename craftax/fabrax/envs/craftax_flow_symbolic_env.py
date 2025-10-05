@@ -4,16 +4,16 @@ from typing import Tuple, Optional
 import chex
 
 from craftax.environment_base.environment_bases import EnvironmentNoAutoReset
-from craftax.craftax_classic.envs.common import compute_score
-from craftax.craftax_classic.constants import *
-from craftax.craftax_classic.game_logic import craftax_step, is_game_over
-from craftax.craftax_classic.envs.craftax_state import (
+from craftax.fabrax.envs.common import compute_score
+from craftax.fabrax.constants import *
+from craftax.fabrax.game_logic import craftax_step, is_game_over
+from craftax.fabrax.envs.craftax_state import (
     EnvState,
     EnvParams,
     StaticEnvParams,
 )
-from craftax.craftax_classic.renderer import render_craftax_symbolic
-from craftax.craftax_classic.world_gen import generate_world
+from craftax.fabrax.renderer import render_craftax_symbolic
+from craftax.fabrax.world_gen import generate_world
 
 from Craftax.craftax.craftax_classic.util.code_parser import task_and_reward_funcs
 
@@ -31,7 +31,7 @@ def get_flat_map_obs_shape():
 
 
 def get_inventory_obs_shape():
-    inv_size = 12
+    inv_size = 37  # Updated from 12 to 37 to include all Fabrax inventory items
     num_intrinsics = 4
     light_level = 1
     is_sleeping = 1
@@ -40,7 +40,7 @@ def get_inventory_obs_shape():
     return inv_size + num_intrinsics + light_level + is_sleeping + direction
 
 
-class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
+class FabraxFlowSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
     def __init__(self, static_env_params: StaticEnvParams = None, module_dict=None):
         super().__init__()
 
@@ -158,10 +158,10 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
 
     @property
     def num_actions(self) -> int:
-        return 17
+        return 44
 
     def action_space(self, params: Optional[EnvParams] = None) -> spaces.Discrete:
-        return spaces.Discrete(17)
+        return spaces.Discrete(44)
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
@@ -179,7 +179,7 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         )
 
 
-class CraftaxClassicSymbolicEnv(environment.Environment):
+class FabraxFlowSymbolicEnv(environment.Environment):
     def __init__(self, static_env_params: StaticEnvParams = None):
         super().__init__()
 
@@ -232,10 +232,10 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
 
     @property
     def num_actions(self) -> int:
-        return 17
+        return 44
 
     def action_space(self, params: Optional[EnvParams] = None) -> spaces.Discrete:
-        return spaces.Discrete(17)
+        return spaces.Discrete(44)
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
