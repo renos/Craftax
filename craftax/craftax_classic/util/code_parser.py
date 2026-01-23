@@ -35,7 +35,7 @@ def return_task_reward_func(module_dict):
             0
         ]  # Update this index based on actual health position
 
-        health_penalty = 0.2 * health_diff + in_lava_pen
+        health_penalty = 0.1 * health_diff + in_lava_pen + 0.1 * intrinsics_diff[1:].sum()
 
         # Dynamically select the reward function based on task_num
         # Construct the function name as a string

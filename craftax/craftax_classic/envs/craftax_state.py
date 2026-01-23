@@ -80,6 +80,9 @@ class EnvState:
     closest_blocks_prev: jnp.ndarray
     task_done: bool
 
+    # Symbolic observation for DAgger (teacher queries)
+    symbolic_obs: jnp.ndarray = None
+
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
 
 

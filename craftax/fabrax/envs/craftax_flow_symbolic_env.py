@@ -15,7 +15,7 @@ from craftax.fabrax.envs.craftax_state import (
 from craftax.fabrax.renderer import render_craftax_symbolic
 from craftax.fabrax.world_gen import generate_world
 
-from Craftax.craftax.craftax_classic.util.code_parser import task_and_reward_funcs
+from craftax.craftax_classic.util.code_parser import task_and_reward_funcs
 
 
 def get_map_obs_shape():
@@ -127,7 +127,7 @@ class FabraxFlowSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         state = state.replace(task_done=task_done)
         state = state.replace(player_state_diff=player_state_diff)
         info["task_done"] = task_done
-        info["closest_blocks"] = state.closest_blocks
+        info["closest_blocks"] = state.closest_blocks_prev
         info["reached_state"] = jnp.arange(self.num_tasks + 1) <= state.player_state
 
         return (

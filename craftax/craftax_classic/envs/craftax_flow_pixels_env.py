@@ -1,5 +1,5 @@
 from jax import lax
-from gymnax.environments import spaces, environment
+from gymnax.environments import spaces
 from typing import Tuple, Optional
 import chex
 
@@ -12,7 +12,7 @@ from craftax.craftax_classic.envs.craftax_state import (
     EnvParams,
     StaticEnvParams,
 )
-from craftax.craftax_classic.renderer import render_craftax_symbolic
+from craftax.craftax_classic.renderer import render_craftax_pixels, render_craftax_symbolic
 from craftax.craftax_classic.world_gen import generate_world
 
 from craftax.craftax_classic.util.code_parser import task_and_reward_funcs
@@ -40,7 +40,9 @@ def get_inventory_obs_shape():
     return inv_size + num_intrinsics + light_level + is_sleeping + direction
 
 
-class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
+class CraftaxClassicPixelsEnvNoAutoResetFlow(EnvironmentNoAutoReset):
+    """Flow-RL Craftax Classic env with pixel observations and symbolic task logic."""
+
     def __init__(self, static_env_params: StaticEnvParams = None, module_dict=None):
         super().__init__()
 
@@ -49,7 +51,6 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         self.static_env_params = static_env_params
 
         if module_dict is not None:
-
             (
                 self.check_task_completion,
                 self.check_task_reward,
@@ -92,7 +93,7 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
             == BlockType.LAVA.value
         )
         in_lava_pen = -state.player_health * in_lava
-        #done = self.is_terminal(state, params)
+
         reward = self.check_task_reward(
             state.player_state,
             state.intrinsics_diff,
@@ -118,8 +119,6 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         task_done = jnp.logical_or(task_done, killed)
         done = jnp.logical_or(killed, state.player_state == self.num_tasks)
 
-
-        #done = self.is_terminal(state, params)
         info = compute_score(state, done)
         info["discount"] = self.discount(state, params)
 
@@ -130,79 +129,8 @@ class CraftaxClassicSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         info["closest_blocks"] = state.closest_blocks_prev
         info["reached_state"] = jnp.arange(self.num_tasks + 1) <= state.player_state
 
-        return (
-            lax.stop_gradient(self.get_obs(state)),
-            lax.stop_gradient(state),
-            reward,
-            done,
-            info,
-        )
-
-    def reset_env(
-        self, rng: chex.PRNGKey, params: EnvParams
-    ) -> Tuple[chex.Array, EnvState]:
-        state = generate_world(rng, params, self.static_env_params)
-
-        return self.get_obs(state), state
-
-    def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
-        return pixels
-
-    def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
-        return is_game_over(state, params)
-
-    @property
-    def name(self) -> str:
-        return "Craftax-Classic-Symbolic-NoAutoReset-v1"
-
-    @property
-    def num_actions(self) -> int:
-        return 17
-
-    def action_space(self, params: Optional[EnvParams] = None) -> spaces.Discrete:
-        return spaces.Discrete(17)
-
-    def observation_space(self, params: EnvParams) -> spaces.Box:
-        flat_map_obs_shape = get_flat_map_obs_shape()
-        inventory_obs_shape = get_inventory_obs_shape()
-
-        relative_positions_shape = 2 * len(BlockType)
-
-        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
-
-        return spaces.Box(
-            0.0,
-            1.0,
-            (obs_shape,),
-            dtype=jnp.float32,
-        )
-
-
-class CraftaxClassicSymbolicEnv(environment.Environment):
-    def __init__(self, static_env_params: StaticEnvParams = None):
-        super().__init__()
-
-        if static_env_params is None:
-            static_env_params = self.default_static_params()
-        self.static_env_params = static_env_params
-
-    @property
-    def default_params(self) -> EnvParams:
-        return EnvParams()
-
-    @staticmethod
-    def default_static_params() -> StaticEnvParams:
-        return StaticEnvParams()
-
-    def step_env(
-        self, rng: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
-    ) -> Tuple[chex.Array, EnvState, float, bool, dict]:
-        state, reward = craftax_step(rng, state, action, params, self.static_env_params)
-
-        done = self.is_terminal(state, params)
-        info = compute_score(state, done)
-        info["discount"] = self.discount(state, params)
+        # Update symbolic obs in state for DAgger teacher queries
+        state = state.replace(symbolic_obs=render_craftax_symbolic(state))
 
         return (
             lax.stop_gradient(self.get_obs(state)),
@@ -216,11 +144,12 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
         self, rng: chex.PRNGKey, params: EnvParams
     ) -> Tuple[chex.Array, EnvState]:
         state = generate_world(rng, params, self.static_env_params)
+        state = state.replace(symbolic_obs=render_craftax_symbolic(state))
 
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_pixels(state, BLOCK_PIXEL_SIZE_AGENT) / 255.0
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -228,7 +157,7 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
 
     @property
     def name(self) -> str:
-        return "Craftax-Classic-Symbolic-v1"
+        return "Craftax-Classic-Pixels-NoAutoReset-Flow-v1"
 
     @property
     def num_actions(self) -> int:
@@ -238,16 +167,13 @@ class CraftaxClassicSymbolicEnv(environment.Environment):
         return spaces.Discrete(17)
 
     def observation_space(self, params: EnvParams) -> spaces.Box:
-        flat_map_obs_shape = get_flat_map_obs_shape()
-        inventory_obs_shape = get_inventory_obs_shape()
-
-        relative_positions_shape = 2 * len(BlockType)
-
-        obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
-
         return spaces.Box(
             0.0,
             1.0,
-            (obs_shape,),
+            (
+                OBS_DIM[1] * BLOCK_PIXEL_SIZE_AGENT,
+                (OBS_DIM[0] + INVENTORY_OBS_HEIGHT) * BLOCK_PIXEL_SIZE_AGENT,
+                3,
+            ),
             dtype=jnp.float32,
         )

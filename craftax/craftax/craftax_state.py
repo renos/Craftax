@@ -106,6 +106,7 @@ class EnvState:
     timestep: int
 
     closest_blocks: jnp.ndarray
+    closest_blocks_per_floor: jnp.ndarray
     player_state: jnp.ndarray
     player_state_diff: jnp.ndarray
     inventory_diff: Inventory
@@ -113,6 +114,9 @@ class EnvState:
     achievements_diff: jnp.ndarray
     closest_blocks_prev: jnp.ndarray
     task_done: bool
+
+    # Symbolic observation for DAgger (teacher queries)
+    symbolic_obs: jnp.ndarray = None
 
     fractal_noise_angles: tuple[int, int, int, int] = (None, None, None, None)
 
@@ -144,3 +148,9 @@ class StaticEnvParams:
     max_ranged_mobs: int = 2
     max_mob_projectiles: int = 3
     max_player_projectiles: int = 3
+
+    # Floor-aware closest blocks
+    use_floor_aware_closest_blocks: bool = False
+
+    # Whether to compute relative positions (update_closest_blocks)
+    include_relative_positions: bool = True

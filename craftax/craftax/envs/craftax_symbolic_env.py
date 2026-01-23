@@ -36,12 +36,17 @@ def get_inventory_obs_shape():
 
 
 class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
-    def __init__(self, static_env_params: Optional[StaticEnvParams] = None):
+    def __init__(
+        self,
+        static_env_params: Optional[StaticEnvParams] = None,
+        include_relative_positions: bool = True,
+    ):
         super().__init__()
 
         if static_env_params is None:
             static_env_params = self.default_static_params()
         self.static_env_params = static_env_params
+        self.include_relative_positions = include_relative_positions
 
     @property
     def default_params(self) -> EnvParams:
@@ -78,7 +83,9 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_symbolic(
+            state, include_relative_positions=self.include_relative_positions
+        )
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -98,7 +105,10 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
         inventory_obs_shape = get_inventory_obs_shape()
-        relative_positions_shape = 2 * len(BlockType)
+        # closest_blocks has channels for all BlockType plus 3 ladder overlays
+        relative_positions_shape = (
+            2 * (len(BlockType) + 3) if self.include_relative_positions else 0
+        )
 
         obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
 
@@ -111,12 +121,17 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
 
 
 class CraftaxSymbolicEnv(environment.Environment):
-    def __init__(self, static_env_params: Optional[StaticEnvParams] = None):
+    def __init__(
+        self,
+        static_env_params: Optional[StaticEnvParams] = None,
+        include_relative_positions: bool = True,
+    ):
         super().__init__()
 
         if static_env_params is None:
             static_env_params = self.default_static_params()
         self.static_env_params = static_env_params
+        self.include_relative_positions = include_relative_positions
 
     @property
     def default_params(self) -> EnvParams:
@@ -152,7 +167,9 @@ class CraftaxSymbolicEnv(environment.Environment):
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_symbolic(
+            state, include_relative_positions=self.include_relative_positions
+        )
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -172,7 +189,10 @@ class CraftaxSymbolicEnv(environment.Environment):
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
         inventory_obs_shape = get_inventory_obs_shape()
-        relative_positions_shape = 2 * len(BlockType)
+        # closest_blocks has channels for all BlockType plus 3 ladder overlays
+        relative_positions_shape = (
+            2 * (len(BlockType) + 3) if self.include_relative_positions else 0
+        )
 
         obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
 

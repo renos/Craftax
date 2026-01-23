@@ -1,6 +1,6 @@
 from functools import partial
 
-from Craftax.craftax.craftax_classic.util.relative_positions import find_closest_blocks
+from craftax.craftax_classic.util.relative_positions import find_closest_blocks
 from craftax.craftax_classic.constants import *
 from craftax.craftax_classic.game_logic import calculate_light_level, get_distance_map
 from craftax.craftax_classic.envs.craftax_state import EnvState, Inventory, Mobs

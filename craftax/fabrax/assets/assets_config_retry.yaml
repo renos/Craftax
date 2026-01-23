@@ -1,0 +1,6 @@
+assets:
+  glass:
+    type: "item"
+    description: "Glass material"
+    reference_asset: "coal.png"
+    prompt: "Create pixel art exactly like the reference coal image. Copy the EXACT same chunky pixel art style and irregular chunk shape. Change it from black coal to clear/translucent light blue glass material. This will be downscaled to 16x16 pixels so keep it simple and blocky like classic minecraft textures."

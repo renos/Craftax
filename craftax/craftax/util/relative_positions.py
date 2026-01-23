@@ -1,5 +1,6 @@
 import jax.numpy as jnp
 import jax
+from craftax.craftax.constants import ItemType
 
 def find_closest_blocks(player_position, semantic_map, k=5):
 
@@ -23,8 +24,9 @@ def find_closest_blocks(player_position, semantic_map, k=5):
         # Flatten for easy indexing
         flat_distances = block_distances.ravel()
 
-        # Argsort distances and select the k smallest
-        sorted_indices = jnp.argsort(flat_distances)[:k]
+        # Use top_k for O(n) instead of O(n log n) argsort
+        # top_k returns k largest, so negate to get k smallest
+        _, sorted_indices = jax.lax.top_k(-flat_distances, k)
         sorted_y, sorted_x = jnp.unravel_index(sorted_indices, block_distances.shape)
 
         sorted_y_relative = sorted_y - player_position[0]
@@ -108,8 +110,8 @@ def merge_old_new(closest_blocks, k):
         # Calculate L1 distances from the origin
         l1_distances = jnp.sum(jnp.abs(closest_block_i), axis=0)
 
-        # Sort based on L1 distance
-        sorted_indices = jnp.argsort(l1_distances)[:k]
+        # Use top_k for O(n) instead of O(n log n) argsort
+        _, sorted_indices = jax.lax.top_k(-l1_distances, k)
         sorted_block_positions = closest_block_i[:, sorted_indices]
         return sorted_block_positions
 
@@ -127,11 +129,24 @@ def update_closest_blocks(state, old_pos, new_pos, OBS_DIM, MAX_OBS_DIM, BlockTy
         (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
         constant_values=BlockType.OUT_OF_BOUNDS.value,
     )
+    # Pad item_map the same way
+    padded_item_map = jnp.pad(
+        state.item_map[state.player_level],
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=ItemType.NONE.value,
+    )
     tl_corner = state.player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
     map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
     map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+    # Also include ladder items from the item_map overlay
+    item_view = jax.lax.dynamic_slice(padded_item_map, tl_corner, OBS_DIM)
+    item_one_hot = jax.nn.one_hot(item_view, num_classes=len(ItemType))
+    ladder_down_ch = item_one_hot[:, :, ItemType.LADDER_DOWN.value : ItemType.LADDER_DOWN.value + 1]
+    ladder_up_ch = item_one_hot[:, :, ItemType.LADDER_UP.value : ItemType.LADDER_UP.value + 1]
+    ladder_down_blocked_ch = item_one_hot[:, :, ItemType.LADDER_DOWN_BLOCKED.value : ItemType.LADDER_DOWN_BLOCKED.value + 1]
+    semantic_map = jnp.concatenate([map_view_one_hot, ladder_down_ch, ladder_up_ch, ladder_down_blocked_ch], axis=-1)
     player_pos = state.player_position
-    new_closest_blocks = find_closest_blocks(obs_dim_array // 2, map_view_one_hot)
+    new_closest_blocks = find_closest_blocks(obs_dim_array // 2, semantic_map)
 
     old_blocks = state.closest_blocks
 
@@ -150,3 +165,55 @@ def update_closest_blocks(state, old_pos, new_pos, OBS_DIM, MAX_OBS_DIM, BlockTy
 
     return state
 
+
+def update_closest_blocks_per_floor(state, old_pos, new_pos, OBS_DIM, MAX_OBS_DIM, BlockType):
+    """Update closest_blocks only for the current floor, preserving other floors."""
+    k = 5
+    current_floor = state.player_level
+    obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
+
+    # Pad and slice current floor's map
+    padded_grid = jnp.pad(
+        state.map[current_floor],
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=BlockType.OUT_OF_BOUNDS.value,
+    )
+    padded_item_map = jnp.pad(
+        state.item_map[current_floor],
+        (MAX_OBS_DIM + 2, MAX_OBS_DIM + 2),
+        constant_values=ItemType.NONE.value,
+    )
+
+    tl_corner = state.player_position - obs_dim_array // 2 + MAX_OBS_DIM + 2
+    map_view = jax.lax.dynamic_slice(padded_grid, tl_corner, OBS_DIM)
+    map_view_one_hot = jax.nn.one_hot(map_view, num_classes=len(BlockType))
+
+    item_view = jax.lax.dynamic_slice(padded_item_map, tl_corner, OBS_DIM)
+    item_one_hot = jax.nn.one_hot(item_view, num_classes=len(ItemType))
+    ladder_down_ch = item_one_hot[:, :, ItemType.LADDER_DOWN.value : ItemType.LADDER_DOWN.value + 1]
+    ladder_up_ch = item_one_hot[:, :, ItemType.LADDER_UP.value : ItemType.LADDER_UP.value + 1]
+    ladder_down_blocked_ch = item_one_hot[:, :, ItemType.LADDER_DOWN_BLOCKED.value : ItemType.LADDER_DOWN_BLOCKED.value + 1]
+    semantic_map = jnp.concatenate([map_view_one_hot, ladder_down_ch, ladder_up_ch, ladder_down_blocked_ch], axis=-1)
+
+    new_closest_blocks = find_closest_blocks(obs_dim_array // 2, semantic_map)
+
+    # Get old blocks FOR THIS FLOOR
+    old_blocks = state.closest_blocks_per_floor[current_floor]
+
+    dx, dy = new_pos[1] - old_pos[1], new_pos[0] - old_pos[0]
+    height, width = obs_dim_array // 2
+    old_blocks_updated = update_relative_positions(old_blocks, dx, dy, height, width)
+
+    combined = jnp.concatenate([old_blocks_updated, new_closest_blocks], axis=-1)
+    updated_closest_blocks = merge_old_new(combined, k)
+
+    # Update per-floor storage
+    closest_blocks_per_floor = state.closest_blocks_per_floor.at[current_floor].set(updated_closest_blocks)
+
+    # Set closest_blocks to current floor's value
+    state = state.replace(
+        closest_blocks_per_floor=closest_blocks_per_floor,
+        closest_blocks=updated_closest_blocks
+    )
+
+    return state

@@ -1,0 +1,198 @@
+assets:
+  # Block Textures
+  copper:
+    type: "block"
+    description: "Copper ore block with orange-reddish metallic veins in stone"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated stone block texture with copper ore veins. The stone should be gray like the reference, but the metallic veins should be bright orange-copper colored instead of dark metallic. 16x16 pixel art style, top-down view."
+
+  tin:
+    type: "block"
+    description: "Tin ore block with silvery-white metallic veins in stone"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated stone block texture with tin ore veins. The stone should be gray like the reference, but the metallic veins should be bright silvery-white colored instead of dark metallic. 16x16 pixel art style, top-down view."
+
+  clay:
+    type: "block"
+    description: "Clay block with reddish-brown earthy texture"
+    reference_asset: "sand.png"
+    prompt: "A minecraft-style pixelated clay block texture. Should have a reddish-brown earthy color with slightly rough, matte texture unlike the sandy reference. 16x16 pixel art style, top-down view."
+
+  limestone:
+    type: "block"
+    description: "Limestone block with light gray, chalky appearance"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated limestone block texture. Should be lighter gray and more chalky/powdery looking than the reference stone, with subtle light gray variations. 16x16 pixel art style, top-down view."
+
+  anvil:
+    type: "block"
+    description: "Metal anvil crafting station"
+    reference_asset: "table.png"
+    prompt: "A minecraft-style pixelated anvil viewed from above. Should show a dark metal anvil shape with a flat top surface and narrower base, unlike the wooden table reference. 16x16 pixel art style, top-down view."
+
+  kiln:
+    type: "block"
+    description: "Stone kiln for firing ceramics"
+    reference_asset: "furnace.png"
+    prompt: "A minecraft-style pixelated kiln viewed from above. Should look like a stone furnace but more rounded/dome-like for ceramic firing, similar structure to reference but more clay-oven appearance. 16x16 pixel art style, top-down view."
+
+  composter:
+    type: "block"
+    description: "Wooden composter for making fertilizer"
+    reference_asset: "wood.png"
+    prompt: "A minecraft-style pixelated wooden composter bin viewed from above. Should show wooden planks arranged in a square bin shape with visible interior, more structured than the solid wood reference. 16x16 pixel art style, top-down view."
+
+  alchemy_bench:
+    type: "block"
+    description: "Alchemy workbench with bottles and apparatus"
+    reference_asset: "table.png"
+    prompt: "A minecraft-style pixelated alchemy bench viewed from above. Should show a wooden table surface with small bottles, flasks, and alchemical equipment on top, more cluttered than the plain reference table. 16x16 pixel art style, top-down view."
+
+  # Tool Textures
+  steel_pickaxe:
+    type: "tool"
+    description: "Steel pickaxe with blue-gray metallic head"
+    reference_asset: "iron_pickaxe.png"
+    prompt: "A minecraft-style pixelated steel pickaxe. Should have the same shape as the iron reference but with a blue-gray metallic head color, indicating stronger steel material. 16x16 pixel art style."
+
+  bronze_pickaxe:
+    type: "tool"
+    description: "Bronze pickaxe with golden-brown metallic head"
+    reference_asset: "stone_pickaxe.png"
+    prompt: "A minecraft-style pixelated bronze pickaxe. Should have the same shape as the reference but replace the stone head with golden-brown bronze metal coloring. 16x16 pixel art style."
+
+  steel_sword:
+    type: "tool"
+    description: "Steel sword with blue-gray metallic blade"
+    reference_asset: "iron_sword.png"
+    prompt: "A minecraft-style pixelated steel sword. Should have the same shape as the iron reference but with a blue-gray metallic blade color, indicating stronger steel material. 16x16 pixel art style."
+
+  bronze_sword:
+    type: "tool"
+    description: "Bronze sword with golden-brown metallic blade"
+    reference_asset: "stone_sword.png"
+    prompt: "A minecraft-style pixelated bronze sword. Should have the same shape as the reference but replace the stone blade with golden-brown bronze metal coloring. 16x16 pixel art style."
+
+  # Item Textures - Raw Materials
+  copper_ore:
+    type: "item"
+    description: "Copper ore chunk for inventory"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated copper ore item. Should be a small chunk/nugget with bright orange-copper coloring, similar shape to iron reference but copper colored. 16x16 pixel art style."
+
+  tin_ore:
+    type: "item"
+    description: "Tin ore chunk for inventory"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated tin ore item. Should be a small chunk/nugget with silvery-white coloring, similar shape to iron reference but tin colored. 16x16 pixel art style."
+
+  clay_ball:
+    type: "item"
+    description: "Ball of clay for inventory"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated clay ball item. Should be round and reddish-brown colored, more rounded than the angular stone reference. 16x16 pixel art style."
+
+  limestone_chunk:
+    type: "item"
+    description: "Limestone chunk for inventory"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated limestone chunk. Should be light gray/chalky colored, similar shape to stone reference but lighter and more chalky appearance. 16x16 pixel art style."
+
+  leather:
+    type: "item"
+    description: "Leather hide from cows"
+    reference_asset: "wood.png"
+    prompt: "A minecraft-style pixelated leather hide item. Should be brown leather texture, more organic/curved than the wooden reference. 16x16 pixel art style."
+
+  # Intermediate Materials
+  iron_bar:
+    type: "item"
+    description: "Smelted iron ingot"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated iron bar/ingot. Should be rectangular bar shape, more refined and metallic than the raw ore reference. 16x16 pixel art style."
+
+  steel_bar:
+    type: "item"
+    description: "Steel alloy ingot"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated steel bar/ingot. Should be rectangular bar shape with blue-gray steel coloring, more refined than the iron reference. 16x16 pixel art style."
+
+  bronze_bar:
+    type: "item"
+    description: "Bronze alloy ingot"
+    reference_asset: "iron.png"
+    prompt: "A minecraft-style pixelated bronze bar/ingot. Should be rectangular bar shape with golden-brown bronze coloring, similar to iron reference shape. 16x16 pixel art style."
+
+  glass:
+    type: "item"
+    description: "Glass material"
+    reference_asset: "diamond.png"
+    prompt: "A minecraft-style pixelated glass item. Should be translucent light blue/clear colored, crystalline like diamond reference but more glass-like. 16x16 pixel art style."
+
+  brick:
+    type: "item"
+    description: "Fired clay brick"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated brick item. Should be rectangular reddish-brown brick shape, more uniform than the stone reference. 16x16 pixel art style."
+
+  lime:
+    type: "item"
+    description: "Lime powder"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated lime powder item. Should be white/off-white powdery appearance, softer looking than the hard stone reference. 16x16 pixel art style."
+
+  tar:
+    type: "item"
+    description: "Black tar from wood"
+    reference_asset: "coal.png"
+    prompt: "A minecraft-style pixelated tar item. Should be black and viscous/liquid-looking, glossier than the coal reference. 16x16 pixel art style."
+
+  # Crafted Items
+  bottle:
+    type: "item"
+    description: "Glass bottle"
+    reference_asset: "drink.png"
+    prompt: "A minecraft-style pixelated glass bottle. Should be clear/translucent bottle shape, more refined than the drink reference. 16x16 pixel art style."
+
+  lens:
+    type: "item"
+    description: "Glass lens"
+    reference_asset: "diamond.png"
+    prompt: "A minecraft-style pixelated glass lens. Should be round, clear/translucent with slight magnifying appearance, more lens-like than the diamond reference. 16x16 pixel art style."
+
+  telescope:
+    type: "item"
+    description: "Wooden telescope"
+    reference_asset: "wood.png"
+    prompt: "A minecraft-style pixelated telescope. Should show a cylindrical telescope shape, more structured/manufactured than the raw wood reference. 16x16 pixel art style."
+
+  mortar:
+    type: "item"
+    description: "Building mortar"
+    reference_asset: "stone.png"
+    prompt: "A minecraft-style pixelated mortar item. Should be gray/cement colored and more powdery/granular looking than the solid stone reference. 16x16 pixel art style."
+
+  fertilizer:
+    type: "item"
+    description: "Plant fertilizer"
+    reference_asset: "plant.png"
+    prompt: "A minecraft-style pixelated fertilizer item. Should be dark brown/composted appearance, earthier than the green plant reference. 16x16 pixel art style."
+
+  flux:
+    type: "item"
+    description: "Smelting flux"
+    reference_asset: "coal.png"
+    prompt: "A minecraft-style pixelated flux item. Should be light gray/white crystalline powder, lighter and more powdery than the black coal reference. 16x16 pixel art style."
+
+  # Potions/Consumables
+  tonic_basic:
+    type: "item"
+    description: "Basic health tonic"
+    reference_asset: "drink.png"
+    prompt: "A minecraft-style pixelated health potion bottle. Should be a bottle with red/pink liquid inside, similar bottle shape to drink reference but with healing potion appearance. 16x16 pixel art style."
+
+  tonic_stoneskin:
+    type: "item"
+    description: "Stoneskin protection potion"
+    reference_asset: "drink.png"
+    prompt: "A minecraft-style pixelated stoneskin potion bottle. Should be a bottle with gray/stone-colored liquid inside, similar bottle shape to drink reference but with protective potion appearance. 16x16 pixel art style."

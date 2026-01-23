@@ -1,4 +1,4 @@
-from Craftax.craftax.craftax.util.relative_positions import update_closest_blocks
+from craftax.craftax.util.relative_positions import update_closest_blocks, update_closest_blocks_per_floor
 from craftax.craftax.util.game_logic_utils import *
 
 
@@ -490,7 +490,9 @@ def do_action(rng, state, action, static_params):
     new_food = jax.lax.select(action_block_in_bounds, new_food, state.player_food)
     new_hunger = jax.lax.select(action_block_in_bounds, new_hunger, state.player_hunger)
     new_growing_plants_age = jax.lax.select(
-        action_block_in_bounds, new_growing_plants_age, state.growing_plants_age
+        jnp.logical_and(action_block_in_bounds, is_eating_plant),
+        new_growing_plants_age,
+        state.growing_plants_age,
     )
 
     new_achievements = jax.lax.select(
@@ -3016,7 +3018,7 @@ def update_diffs(
     state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory, init_achievements, updated_achievements
 ):
     intrinsics_diff = jnp.array(updated_intrinsics - init_intrinsics, dtype=jnp.int32)
-    inventory_diff = jax.tree_map(
+    inventory_diff = jax.tree.map(
     lambda x, y: jnp.array(x - y, dtype=jnp.int32),
     updated_inventory,
     init_inventory
@@ -3047,12 +3049,14 @@ def craftax_step(rng, state, action, params, static_params):
 
     closest_blocks_init = state.closest_blocks
 
+
     # Interrupt action if sleeping or resting
     action = jax.lax.select(state.is_sleeping, Action.NOOP.value, action)
     action = jax.lax.select(state.is_resting, Action.NOOP.value, action)
 
     # Change floor
     state = change_floor(state, action, params, static_params)
+
 
     # Crafting
     state = do_crafting(state, action)
@@ -3121,7 +3125,12 @@ def craftax_step(rng, state, action, params, static_params):
     reward = achievement_reward + health_reward
 
     # update 5 closest blocks
-    state = update_closest_blocks(state, old_position, new_position, OBS_DIM, MAX_OBS_DIM, BlockType)
+    if static_params.include_relative_positions:
+        print("[TRACING] include_relative_positions=True branch in game_logic.py")
+        if static_params.use_floor_aware_closest_blocks:
+            state = update_closest_blocks_per_floor(state, old_position, new_position, OBS_DIM, MAX_OBS_DIM, BlockType)
+        else:
+            state = update_closest_blocks(state, old_position, new_position, OBS_DIM, MAX_OBS_DIM, BlockType)
 
     updated_intrinsics = jnp.array(
         [

@@ -169,8 +169,9 @@ def find_closest_blocks(player_position, semantic_map, k=5):
         # Flatten for easy indexing
         flat_distances = block_distances.ravel()
 
-        # Argsort distances and select the k smallest
-        sorted_indices = jnp.argsort(flat_distances)[:k]
+        # Use top_k for O(n) instead of O(n log n) argsort
+        # top_k returns k largest, so negate to get k smallest
+        _, sorted_indices = jax.lax.top_k(-flat_distances, k)
         sorted_y, sorted_x = jnp.unravel_index(sorted_indices, block_distances.shape)
 
         sorted_y_relative = sorted_y - player_position[0]
@@ -254,8 +255,8 @@ def merge_old_new(closest_blocks, k):
         # Calculate L1 distances from the origin
         l1_distances = jnp.sum(jnp.abs(closest_block_i), axis=0)
 
-        # Sort based on L1 distance
-        sorted_indices = jnp.argsort(l1_distances)[:k]
+        # Use top_k for O(n) instead of O(n log n) argsort
+        _, sorted_indices = jax.lax.top_k(-l1_distances, k)
         sorted_block_positions = closest_block_i[:, sorted_indices]
         return sorted_block_positions
 

@@ -471,7 +471,9 @@ def do_action(rng, state, action, static_params):
     new_food = jax.lax.select(action_block_in_bounds, new_food, state.player_food)
     new_hunger = jax.lax.select(action_block_in_bounds, new_hunger, state.player_hunger)
     new_growing_plants_age = jax.lax.select(
-        action_block_in_bounds, new_growing_plants_age, state.growing_plants_age
+        jnp.logical_and(action_block_in_bounds, is_eating_plant),
+        new_growing_plants_age,
+        state.growing_plants_age,
     )
 
     new_achievements = jax.lax.select(
@@ -2328,7 +2330,7 @@ def update_diffs(
     state, init_intrinsics, updated_intrinsics, init_inventory, updated_inventory, init_achievements, updated_achievements
 ):
     intrinsics_diff = jnp.array(updated_intrinsics - init_intrinsics, dtype=jnp.int32)
-    inventory_diff = jax.tree_map(
+    inventory_diff = jax.tree.map(
     lambda x, y: jnp.array(x - y, dtype=jnp.int32),
     updated_inventory,
     init_inventory

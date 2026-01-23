@@ -6,7 +6,7 @@ from craftax.craftax.craftax_state import EnvState
 from craftax.craftax.util.game_logic_utils import is_boss_vulnerable
 
 
-def render_craftax_symbolic(state: EnvState):
+def render_craftax_symbolic(state: EnvState, include_relative_positions: bool = True):
     map = state.map[state.player_level]
 
     obs_dim_array = jnp.array([OBS_DIM[0], OBS_DIM[1]], dtype=jnp.int32)
@@ -182,19 +182,20 @@ def render_craftax_symbolic(state: EnvState):
         ]
     )
 
-    all_flattened = jnp.concatenate(
-        [
-            all_map.flatten(),
-            inventory,
-            potions,
-            intrinsics,
-            direction,
-            armour,
-            armour_enchantments,
-            special_values,
-            state.closest_blocks[:, :, 0].flatten() / 10.0,
-        ]
-    )
+    base_obs = [
+        all_map.flatten(),
+        inventory,
+        potions,
+        intrinsics,
+        direction,
+        armour,
+        armour_enchantments,
+        special_values,
+    ]
+    if include_relative_positions:
+        base_obs.append(state.closest_blocks[:, :, 0].flatten() / 10.0)
+
+    all_flattened = jnp.concatenate(base_obs)
 
     return all_flattened
 

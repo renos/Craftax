@@ -739,6 +739,7 @@ def load_all_textures(block_pixel_size):
         load_texture("player-down.png", block_pixel_size),
         load_texture("player-sleep.png", block_pixel_size),
     ]
+    player_textures_rgba = jnp.array(player_textures)
 
     full_map_player_textures_rgba = [
         jnp.pad(
@@ -1064,8 +1065,10 @@ def load_all_textures(block_pixel_size):
         "block_textures": block_textures,
         "smaller_block_textures": smaller_block_textures,
         "full_map_block_textures": full_map_block_textures,
+        "item_textures": item_textures,
         "full_map_item_textures": full_map_item_textures,
         "player_textures": player_textures,
+        "player_textures_rgba": player_textures_rgba,
         "full_map_player_textures": full_map_player_textures,
         "full_map_player_textures_alpha": full_map_player_textures_alpha,
         "empty_texture": empty_texture,
@@ -1145,3 +1148,26 @@ if not load_cached_textures_success:
 
     save_compressed_pickle(TEXTURE_CACHE_FILE, TEXTURES)
     print("Textures loaded and saved to cache.")
+
+
+def _ensure_fast_texture_keys():
+    """Backfill derived texture keys for older texture caches."""
+    for ts, textures in TEXTURES.items():
+        if "item_textures" not in textures:
+            textures["item_textures"] = textures["full_map_item_textures"][
+                :, :ts, :ts, :
+            ]
+
+        if "player_textures_rgba" not in textures:
+            pad_y = (OBS_DIM[0] // 2) * ts
+            pad_x = (OBS_DIM[1] // 2) * ts
+            rgb = textures["full_map_player_textures"][
+                :, pad_y : pad_y + ts, pad_x : pad_x + ts, :
+            ]
+            alpha = textures["full_map_player_textures_alpha"][
+                :, pad_y : pad_y + ts, pad_x : pad_x + ts, 0:1
+            ]
+            textures["player_textures_rgba"] = jnp.concatenate([rgb, alpha], axis=-1)
+
+
+_ensure_fast_texture_keys()

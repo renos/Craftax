@@ -21,12 +21,20 @@ def return_task_reward_func(module_dict):
         key=lambda f: int(re.search(r"\d+", f.__name__).group()),
     )
 
+    if not reward_functions:
+        def _zero_reward(*_args, **_kwargs):
+            return jnp.array(0.0)
+
+        reward_functions = [_zero_reward]
+
     def check_task_reward(
         task_num,
         intrinsics_diff,
         inventory_diff,
         closest_blocks,
         closest_blocks_prev,
+        player_level_diff,
+        monsters_killed_diff,
         env_reward,
         in_lava_pen,
         achievements_diff,
@@ -35,7 +43,7 @@ def return_task_reward_func(module_dict):
             0
         ]  # Update this index based on actual health position
 
-        health_penalty = 0.2 * health_diff + in_lava_pen
+        health_penalty = 0.1 * health_diff + in_lava_pen + 0.1 * intrinsics_diff[1:].sum()
 
         # Dynamically select the reward function based on task_num
         # Construct the function name as a string
@@ -43,6 +51,8 @@ def return_task_reward_func(module_dict):
             inventory_diff,
             closest_blocks,
             closest_blocks_prev,
+            player_level_diff,
+            monsters_killed_diff,
             intrinsics_diff,
             achievements_diff,
             # env_reward,
@@ -75,12 +85,41 @@ def return_check_task_completion_func(module_dict):
         ],
         key=lambda f: int(re.search(r"\d+", f.__name__).group()),
     )
+    if not is_done_functions:
+        # Provide a stub that never completes tasks when no definitions exist
+        def _default_is_done(
+            inventory,
+            inventory_diff,
+            closest_blocks,
+            closest_blocks_prev,
+            player_level,
+            monsters_killed,
+            player_intrinsics,
+            player_intrinsics_diff,
+            achievements,
+        ):
+            del (
+                inventory,
+                inventory_diff,
+                closest_blocks,
+                closest_blocks_prev,
+                player_level,
+                monsters_killed,
+                player_intrinsics,
+                player_intrinsics_diff,
+                achievements,
+            )
+            return False
+
+        is_done_functions = [_default_is_done]
     num_done_funcs = len(is_done_functions)
 
     def check_task_completion(
         current_task,
         closest_blocks,
         closest_blocks_prev,
+        player_level,
+        monsters_killed,
         inventory,
         inventory_diff,
         player_intrinsics,
@@ -95,6 +134,8 @@ def return_check_task_completion_func(module_dict):
                     inventory_diff,
                     closest_blocks,
                     closest_blocks_prev,
+                    player_level,
+                    monsters_killed,
                     player_intrinsics,
                     player_intrinsics_diff,
                     achievements,
@@ -170,6 +211,8 @@ def task_to_skill(module_dict):
         ],
         key=lambda f: int(re.search(r"\d+", f.__name__).group()),
     )
+    if not head_functions:
+        return [0]
     # Map each network number to its corresponding skill function name
     network_to_skill = []
     for func in head_functions:
@@ -187,9 +230,9 @@ def task_and_reward_funcs(module_dict):
         module_dict
     )
     task_to_skill_index = task_to_skill(module_dict)
-    num_skills = (
-        max(task_to_skill_index) + 1
-    )  # 0 indexing so if skills [0] -> we have 1 skill
+    if not task_to_skill_index:
+        task_to_skill_index = [0]
+    num_skills = max(task_to_skill_index) + 1  # 0 indexing so skill id == count-1
 
     common_heads, num_common_heads = (
         return_task_heads(num_skills)

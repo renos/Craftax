@@ -1,4 +1,4 @@
-from Craftax.craftax.craftax.util.code_parser import task_and_reward_funcs
+from craftax.craftax.util.code_parser import task_and_reward_funcs
 import jax
 from jax import lax
 from gymnax.environments import spaces, environment
@@ -8,10 +8,18 @@ import chex
 from craftax.craftax.envs.common import log_achievements_to_info
 from craftax.environment_base.environment_bases import EnvironmentNoAutoReset
 from craftax.craftax.constants import *
-from craftax.craftax.game_logic import craftax_step, is_game_over
+from craftax.craftax.game_logic import craftax_step as craftax_step_default, is_game_over
+from craftax.craftax.game_logic_warp import craftax_step as craftax_step_warp
 from craftax.craftax.craftax_state import EnvState, EnvParams, StaticEnvParams
 from craftax.craftax.renderer import render_craftax_symbolic
-from craftax.craftax.world_gen.world_gen import generate_world
+from craftax.craftax.world_gen.world_gen import generate_world as generate_world_default
+from craftax.craftax.world_gen.world_gen_warp import generate_world as generate_world_warp
+
+# Import true warp (NVIDIA Warp kernels) - optional
+try:
+    from craftax.craftax.game_logic_tru_warp import WARP_AVAILABLE as TRUE_WARP_AVAILABLE
+except ImportError:
+    TRUE_WARP_AVAILABLE = False
 
 
 def get_map_obs_shape():
@@ -37,12 +45,43 @@ def get_inventory_obs_shape():
 
 
 class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
-    def __init__(self, static_env_params: Optional[StaticEnvParams] = None, module_dict=None):
+    def __init__(
+        self,
+        static_env_params: Optional[StaticEnvParams] = None,
+        module_dict=None,
+        include_relative_positions: bool = True,
+        use_warp: bool = False,
+        use_true_warp: bool = False,
+    ):
         super().__init__()
 
         if static_env_params is None:
             static_env_params = self.default_static_params()
+        # Set include_relative_positions on static_env_params for game_logic
+        static_env_params = static_env_params.replace(include_relative_positions=include_relative_positions)
         self.static_env_params = static_env_params
+        self.include_relative_positions = include_relative_positions
+        self.use_warp = use_warp
+        self.use_true_warp = use_true_warp
+
+        # Select step function based on flags
+        if use_true_warp:
+            if not TRUE_WARP_AVAILABLE:
+                raise RuntimeError(
+                    "use_true_warp=True but NVIDIA Warp is not available. "
+                    "Install with: pip install warp-lang"
+                )
+            from craftax.craftax.game_logic_tru_warp import craftax_step_true_warp
+            self._craftax_step = craftax_step_true_warp
+            print(f"[CraftaxEnv] Using TRUE WARP step function (NVIDIA Warp kernels)")
+        elif use_warp:
+            self._craftax_step = craftax_step_warp
+            print(f"[CraftaxEnv] Using optimized JAX warp step function")
+        else:
+            self._craftax_step = craftax_step_default
+            print(f"[CraftaxEnv] Using default step function")
+
+        self._generate_world = generate_world_warp if use_warp else generate_world_default
 
         if module_dict is not None:
 
@@ -72,7 +111,9 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
     def step_env(
         self, rng: chex.PRNGKey, state: EnvState, action: int, params: EnvParams
     ) -> Tuple[chex.Array, EnvState, float, bool, dict]:
-        state, env_reward = craftax_step(rng, state, action, params, self.static_env_params)
+        prev_monsters_killed = state.monsters_killed
+        prev_player_level = state.player_level
+        state, env_reward = self._craftax_step(rng, state, action, params, self.static_env_params)
         player_intrinsics = jnp.array(
             [
                 state.player_health,
@@ -87,6 +128,9 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
             == BlockType.LAVA.value
         )
         in_lava_pen = -state.player_health * in_lava
+        # Compute per-level and level-index diffs
+        monsters_killed_diff = state.monsters_killed - prev_monsters_killed
+        player_level_diff = state.player_level - prev_player_level
         #done = self.is_terminal(state, params)
         reward = self.check_task_reward(
             state.player_state,
@@ -94,6 +138,8 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
             state.inventory_diff,
             state.closest_blocks,
             state.closest_blocks_prev,
+            player_level_diff,
+            monsters_killed_diff,
             env_reward,
             in_lava_pen,
             state.achievements_diff,
@@ -103,6 +149,8 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
             state.player_state,
             state.closest_blocks,
             state.closest_blocks_prev,
+            state.player_level,
+            state.monsters_killed,
             state.inventory,
             state.inventory_diff,
             player_intrinsics,
@@ -120,8 +168,9 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         state = state.replace(task_done=task_done)
         state = state.replace(player_state_diff=player_state_diff)
         info["task_done"] = task_done
-        info["closest_blocks"] = state.closest_blocks
+        info["closest_blocks"] = state.closest_blocks_prev
         info["reached_state"] = jnp.arange(self.num_tasks + 1) <= state.player_state
+        info["env_reward"] = env_reward
 
         return (
             lax.stop_gradient(self.get_obs(state)),
@@ -135,12 +184,14 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
         self, rng: chex.PRNGKey, params: EnvParams
     ) -> Tuple[chex.Array, EnvState]:
         rng, _rng = jax.random.split(rng)
-        state = generate_world(_rng, params, self.static_env_params)
+        state = self._generate_world(_rng, params, self.static_env_params)
 
         return self.get_obs(state), state
 
     def get_obs(self, state: EnvState) -> chex.Array:
-        pixels = render_craftax_symbolic(state)
+        pixels = render_craftax_symbolic(
+            state, include_relative_positions=self.include_relative_positions
+        )
         return pixels
 
     def is_terminal(self, state: EnvState, params: EnvParams) -> bool:
@@ -160,7 +211,10 @@ class CraftaxSymbolicEnvNoAutoReset(EnvironmentNoAutoReset):
     def observation_space(self, params: EnvParams) -> spaces.Box:
         flat_map_obs_shape = get_flat_map_obs_shape()
         inventory_obs_shape = get_inventory_obs_shape()
-        relative_positions_shape = 2 * len(BlockType)
+        # closest_blocks includes 3 extra ladder channels (down, up, down_blocked)
+        relative_positions_shape = (
+            2 * (len(BlockType) + 3) if self.include_relative_positions else 0
+        )
 
         obs_shape = flat_map_obs_shape + inventory_obs_shape + relative_positions_shape
 
